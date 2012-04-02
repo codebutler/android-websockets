@@ -2,14 +2,15 @@ package com.codebutler.android_websockets;
 
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 import org.apache.http.*;
 import org.apache.http.message.BasicLineParser;
 import org.apache.http.message.BasicNameValuePair;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
+import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -74,17 +75,17 @@ public class WebSocketClient {
                     out.print("\r\n");
                     out.flush();
 
-                    InputStreamReader reader = new InputStreamReader(mSocket.getInputStream());
+                    HybiParser.HappyDataInputStream stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
 
                     // Read HTTP response status line.
-                    StatusLine statusLine = parseStatusLine(readLine(reader));
+                    StatusLine statusLine = parseStatusLine(readLine(stream));
                     if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
                         throw new ProtocolException("Bad HTTP response: " + statusLine);
                     }
 
                     // Read HTTP response headers.
                     String line;
-                    while (!TextUtils.isEmpty(line = readLine(reader))) {
+                    while (!TextUtils.isEmpty(line = readLine(stream))) {
                         Header header = parseHeader(line);
                         if (header.getName().equals("Sec-WebSocket-Accept")) {
                             // FIXME: Verify the response...
@@ -94,7 +95,11 @@ public class WebSocketClient {
                     mHandler.onConnect();
 
                     // Now decode websocket frames.
-                    mParser.start(mSocket);
+                    mParser.start(stream);
+
+                } catch (EOFException ex) {
+                    Log.d(TAG, "WebSocket EOF!", ex);
+                    mHandler.onDisconnect(0, "EOF");
 
                 } catch (Exception ex) {
                     mHandler.onError(ex);
@@ -125,17 +130,21 @@ public class WebSocketClient {
     }
 
     // Can't use BufferedReader because it buffers past the HTTP data.
-    private String readLine(InputStreamReader reader) throws IOException {
+    private String readLine(HybiParser.HappyDataInputStream reader) throws IOException {
         int readChar = reader.read();
         if (readChar == -1) {
             return null;
         }
         StringBuilder string = new StringBuilder("");
-        while (readChar != -1 && readChar != '\n') {
+        while (readChar != '\n') {
             if (readChar != '\r') {
                 string.append((char) readChar);
             }
+
             readChar = reader.read();
+            if (readChar == -1) {
+                return null;
+            }
         }
         return string.toString();
     }

@@ -34,7 +34,6 @@ import android.util.Log;
 
 import java.io.*;
 import java.math.BigInteger;
-import java.net.Socket;
 import java.util.Arrays;
 import java.util.List;
 
@@ -106,12 +105,7 @@ public class HybiParser {
         return payload;
     }
 
-    public void start(Socket socket) throws IOException {
-        start(socket.getInputStream());
-    }
-
-    public void start(InputStream inputStream) throws IOException {
-        HappyDataInputStream stream = new HappyDataInputStream(inputStream);
+    public void start(HappyDataInputStream stream) throws IOException {
         while (true) {
             if (stream.available() == -1) break;
             switch (mStage) {
@@ -350,7 +344,7 @@ public class HybiParser {
         }
     }
 
-    private static class HappyDataInputStream extends DataInputStream {
+    public static class HappyDataInputStream extends DataInputStream {
         public HappyDataInputStream(InputStream in) {
             super(in);
         }
