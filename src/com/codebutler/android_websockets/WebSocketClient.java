@@ -52,6 +52,9 @@ public class WebSocketClient {
                     int port = (mURI.getPort() != -1) ? mURI.getPort() : (mURI.getScheme().equals("wss") ? 443 : 80);
 
                     String path = TextUtils.isEmpty(mURI.getPath()) ? "/" : mURI.getPath();
+                    if (!TextUtils.isEmpty(mURI.getQuery())) {
+                        path += "?" + mURI.getQuery();
+                    }
 
                     String originScheme = mURI.getScheme().equals("wss") ? "https" : "http";
                     URI origin = new URI(originScheme, mURI.getSchemeSpecificPart(), null);
