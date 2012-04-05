@@ -33,7 +33,6 @@ package com.codebutler.android_websockets;
 import android.util.Log;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 
@@ -327,7 +326,7 @@ public class HybiParser {
     }
 
     private int getInteger(byte[] bytes) throws ProtocolError {
-        long i = new BigInteger(bytes).longValue();
+        long i = byteArrayToLong(bytes, 0, bytes.length);
         if (i < 0 || i > Integer.MAX_VALUE) {
             throw new ProtocolError("Bad integer: " + i);
         }
@@ -342,6 +341,18 @@ public class HybiParser {
         public ProtocolError(String detailMessage) {
             super(detailMessage);
         }
+    }
+
+    private static long byteArrayToLong(byte[] b, int offset, int length) {
+        if (b.length < length)
+            throw new IllegalArgumentException("length must be less than or equal to b.length");
+
+        long value = 0;
+        for (int i = 0; i < length; i++) {
+            int shift = (length - 1 - i) * 8;
+            value += (b[i + offset] & 0x000000FF) << shift;
+        }
+        return value;
     }
 
     public static class HappyDataInputStream extends DataInputStream {
