@@ -4,17 +4,23 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import org.apache.http.*;
+import org.apache.http.client.HttpResponseException;
 import org.apache.http.message.BasicLineParser;
 import org.apache.http.message.BasicNameValuePair;
 
 import javax.net.SocketFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 public class WebSocketClient {
@@ -28,6 +34,12 @@ public class WebSocketClient {
     private HybiParser               mParser;
 
     private final Object mSendLock = new Object();
+
+    private static TrustManager[] sTrustManagers;
+
+    public static void setTrustManagers(TrustManager[] tm) {
+        sTrustManagers = tm;
+    }
 
     public WebSocketClient(URI uri, Handler handler, List<BasicNameValuePair> extraHeaders) {
         mURI          = uri;
@@ -59,7 +71,7 @@ public class WebSocketClient {
                     String originScheme = mURI.getScheme().equals("wss") ? "https" : "http";
                     URI origin = new URI(originScheme, mURI.getSchemeSpecificPart(), null);
 
-                    SocketFactory factory = SSLSocketFactory.getDefault();
+                    SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
                     mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
@@ -83,7 +95,7 @@ public class WebSocketClient {
                     // Read HTTP response status line.
                     StatusLine statusLine = parseStatusLine(readLine(stream));
                     if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
-                        throw new ProtocolException("Bad HTTP response: " + statusLine);
+                        throw new HttpResponseException(statusLine.getStatusCode(), statusLine.getReasonPhrase());
                     }
 
                     // Read HTTP response headers.
@@ -104,6 +116,11 @@ public class WebSocketClient {
                     Log.d(TAG, "WebSocket EOF!", ex);
                     mHandler.onDisconnect(0, "EOF");
 
+                } catch (SSLException ex) {
+                    // Connection reset by peer
+                    Log.d(TAG, "Websocket SSL error!", ex);
+                    mHandler.onDisconnect(0, "SSL");
+
                 } catch (Exception ex) {
                     mHandler.onError(ex);
                 }
@@ -113,7 +130,10 @@ public class WebSocketClient {
     }
 
     public void disconnect() throws IOException {
-        mSocket.close();
+        if (mSocket != null) {
+            mSocket.close();
+            mSocket = null;
+        }
     }
 
     public void send(String data) {
@@ -178,5 +198,11 @@ public class WebSocketClient {
         public void onMessage(byte[] data);
         public void onDisconnect(int code, String reason);
         public void onError(Exception error);
+    }
+
+    private SSLSocketFactory getSSLSocketFactory() throws NoSuchAlgorithmException, KeyManagementException {
+        SSLContext context = SSLContext.getInstance("TLS");
+        context.init(null, sTrustManagers, null);
+        return context.getSocketFactory();
     }
 }
