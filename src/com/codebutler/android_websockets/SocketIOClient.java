@@ -156,7 +156,7 @@ public class SocketIOClient {
             @Override
             public void onDisconnect(int code, String reason) {
                 cleanup();
-                // attempt reconnect?
+                // attempt reconnect with same session?
                 mHandler.onDisconnect(code, reason);
             }
 
@@ -181,6 +181,7 @@ public class SocketIOClient {
     private void cleanup() {
         try {
             mClient.disconnect();
+            mClient = null;
         }
         catch (IOException e) {
         }
@@ -190,6 +191,8 @@ public class SocketIOClient {
     }
 
     public void connect() {
+        if (mClient != null)
+            return;
         new Thread() {
             public void run() {
                 HttpPost post = new HttpPost(mURI.toString() + "/socket.io/1/");
