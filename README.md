@@ -1,12 +1,16 @@
-# WebSocket client for Android
+# WebSocket and Socket.IO client for Android
 
-A very simple bare-minimum WebSocket client for Android.
+A very simple bare-minimum WebSocket and Socket.IO client for Android.
 
 ## Credits
 
 The hybi parser is based on code from the [faye project](https://github.com/faye/faye-websocket-node). Faye is Copyright (c) 2009-2012 James Coglan. Many thanks for the great open-source library!
 
-Ported from JavaScript to Java by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
+The hybi parser was ported from JavaScript to Java by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
+
+The WebSocket client was written by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
+
+The Socket.IO client was written by [Koushik Dutta](https://twitter.com/koush).
 
 ## Usage
 
