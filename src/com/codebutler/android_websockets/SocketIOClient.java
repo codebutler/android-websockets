@@ -72,7 +72,7 @@ public class SocketIOClient {
     android.os.Handler mSendHandler;
     Looper mSendLooper;
 
-    public void send(String name, JSONArray args) throws JSONException {
+    public void emit(String name, JSONArray args) throws JSONException {
         final JSONObject event = new JSONObject();
         event.put("name", name);
         event.put("args", args);

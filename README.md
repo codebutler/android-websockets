@@ -87,7 +87,7 @@ arguments.put("first argument");
 JSONObject second = new JSONObject();
 second.put("dictionary", true);
 arguments.put(second)
-client.send("hello", arguments);
+client.emit("hello", arguments);
 client.disconnect();
 ```
 
