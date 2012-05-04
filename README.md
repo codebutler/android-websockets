@@ -10,7 +10,7 @@ Ported from JavaScript to Java by [Eric Butler](https://twitter.com/codebutler) 
 
 ## Usage
 
-Here's the entire API:
+Here's the entire WebSocket API:
 
 ```java
 List<BasicNameValuePair> extraHeaders = Arrays.asList(
@@ -51,6 +51,49 @@ client.send("hello!");
 client.send(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF });
 client.disconnect();
 ```
+
+And here's the Socket.IO API built on top of that:
+
+
+```java
+List<BasicNameValuePair> extraHeaders = Arrays.asList(
+    new BasicNameValuePair("Cookie", "session=abcd");
+);
+
+WebSocketClient client = new WebSocketClient(URI.create("wss://example.com"), new WebSocketClient.Handler() {
+    @Override
+    public void onConnect() {
+        Log.d(TAG, "Connected!");
+    }
+
+    @Override
+    public void on(String event, JSONArray arguments) {
+        Log.d(TAG, String.format("Got event %s: %s", event, arguments.toString()));
+    }
+
+    @Override
+    public void onDisconnect(int code, String reason) {
+        Log.d(TAG, String.format("Disconnected! Code: %d Reason: %s", code, reason));
+    }
+
+    @Override
+    public void onError(Exception error) {
+        Log.e(TAG, "Error!", error);
+    }
+}, extraHeaders);
+
+client.connect();
+
+// Later… 
+JSONArray arguments = new JSONArray();
+arguments.put("first argument");
+JSONObject second = new JSONObject();
+second.put("dictionary", true);
+arguments.put(second)
+client.send("hello", arguments);
+client.disconnect();
+```
+
 
 
 ## TODO
