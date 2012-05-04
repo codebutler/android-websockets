@@ -1,2 +1,4 @@
-gen/
-local.properties
+bin
+gen
+.classpath
+.project
