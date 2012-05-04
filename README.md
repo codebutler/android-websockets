@@ -12,9 +12,7 @@ The WebSocket client was written by [Eric Butler](https://twitter.com/codebutler
 
 The Socket.IO client was written by [Koushik Dutta](https://twitter.com/koush).
 
-## Usage
-
-Here's the entire WebSocket API:
+## WebSocket Usage
 
 ```java
 List<BasicNameValuePair> extraHeaders = Arrays.asList(
@@ -56,8 +54,7 @@ client.send(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF });
 client.disconnect();
 ```
 
-And here's the Socket.IO API built on top of that:
-
+## Socket.IO Usage
 
 ```java
 WebSocketClient client = new WebSocketClient(URI.create("wss://example.com"), new WebSocketClient.Handler() {
