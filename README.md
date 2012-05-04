@@ -57,7 +57,7 @@ client.disconnect();
 ## Socket.IO Usage
 
 ```java
-WebSocketClient client = new WebSocketClient(URI.create("wss://example.com"), new WebSocketClient.Handler() {
+SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new SocketIOClient.Handler() {
     @Override
     public void onConnect() {
         Log.d(TAG, "Connected!");
