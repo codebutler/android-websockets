@@ -89,11 +89,7 @@ public class SocketIOClient {
         mClient = new WebSocketClient(new URI(mURI.toString() + "/socket.io/1/websocket/" + mSession), new WebSocketClient.Handler() {
             @Override
             public void onMessage(byte[] data) {
-                try {
-                    mClient.disconnect();
-                }
-                catch (IOException e) {
-                }
+                cleanup();
                 mHandler.onError(new Exception("Unexpected binary data"));
             }
 
@@ -146,6 +142,7 @@ public class SocketIOClient {
                     }
                 }
                 catch (Exception ex) {
+                    cleanup();
                     onError(ex);
                 }
             }
