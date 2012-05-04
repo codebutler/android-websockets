@@ -56,10 +56,6 @@ And here's the Socket.IO API built on top of that:
 
 
 ```java
-List<BasicNameValuePair> extraHeaders = Arrays.asList(
-    new BasicNameValuePair("Cookie", "session=abcd");
-);
-
 WebSocketClient client = new WebSocketClient(URI.create("wss://example.com"), new WebSocketClient.Handler() {
     @Override
     public void onConnect() {
@@ -80,7 +76,7 @@ WebSocketClient client = new WebSocketClient(URI.create("wss://example.com"), ne
     public void onError(Exception error) {
         Log.e(TAG, "Error!", error);
     }
-}, extraHeaders);
+});
 
 client.connect();
 
