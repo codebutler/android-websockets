@@ -30,15 +30,15 @@ public class SocketIOClient {
         public void onError(Exception error);
     }
 
-    URI mURI;
+    String mURL;
     Handler mHandler;
     String mSession;
     int mHeartbeat;
-    int mClosingTimeout;
     WebSocketClient mClient;
 
     public SocketIOClient(URI uri, Handler handler) {
-        mURI = uri;
+        // remove trailing "/" from URI, in case user provided e.g. http://test.com/
+        mURL = uri.toString().replaceAll("/$", "") + "/socket.io/1/";
         mHandler = handler;
     }
 
@@ -86,7 +86,7 @@ public class SocketIOClient {
     }
 
     private void connectSession() throws URISyntaxException {
-        mClient = new WebSocketClient(new URI(mURI.toString() + "/socket.io/1/websocket/" + mSession), new WebSocketClient.Handler() {
+        mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession), new WebSocketClient.Handler() {
             @Override
             public void onMessage(byte[] data) {
                 cleanup();
@@ -195,7 +195,7 @@ public class SocketIOClient {
             return;
         new Thread() {
             public void run() {
-                HttpPost post = new HttpPost(mURI.toString() + "/socket.io/1/");
+                HttpPost post = new HttpPost(mURL);
                 try {
                     String line = downloadUriAsString(post);
                     String[] parts = line.split(":");
@@ -224,3 +224,4 @@ public class SocketIOClient {
         }.start();
     }
 }
+
