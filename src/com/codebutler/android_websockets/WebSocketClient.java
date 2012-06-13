@@ -94,7 +94,9 @@ public class WebSocketClient {
 
                     // Read HTTP response status line.
                     StatusLine statusLine = parseStatusLine(readLine(stream));
-                    if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
+                    if (statusLine == null) {
+                        throw new HttpException("Received no reply from server.");
+                    } else if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
                         throw new HttpResponseException(statusLine.getStatusCode(), statusLine.getReasonPhrase());
                     }
 
@@ -145,6 +147,9 @@ public class WebSocketClient {
     }
 
     private StatusLine parseStatusLine(String line) {
+        if (TextUtils.isEmpty(line)) {
+            return null;
+        }
         return BasicLineParser.parseStatusLine(line, new BasicLineParser());
     }
 
