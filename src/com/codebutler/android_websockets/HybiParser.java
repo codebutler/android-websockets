@@ -128,7 +128,7 @@ public class HybiParser {
                     break;
             }
         }
-        mClient.getHandler().onDisconnect(0, "EOF");
+        mClient.getListener().onDisconnect(0, "EOF");
     }
 
     private void parseOpcode(byte data) throws ProtocolError {
@@ -262,9 +262,9 @@ public class HybiParser {
             if (mFinal) {
                 byte[] message = mBuffer.toByteArray();
                 if (mMode == MODE_TEXT) {
-                    mClient.getHandler().onMessage(encode(message));
+                    mClient.getListener().onMessage(encode(message));
                 } else {
-                    mClient.getHandler().onMessage(message);
+                    mClient.getListener().onMessage(message);
                 }
                 reset();
             }
@@ -272,7 +272,7 @@ public class HybiParser {
         } else if (opcode == OP_TEXT) {
             if (mFinal) {
                 String messageText = encode(payload);
-                mClient.getHandler().onMessage(messageText);
+                mClient.getListener().onMessage(messageText);
             } else {
                 mMode = MODE_TEXT;
                 mBuffer.write(payload);
@@ -280,7 +280,7 @@ public class HybiParser {
 
         } else if (opcode == OP_BINARY) {
             if (mFinal) {
-                mClient.getHandler().onMessage(payload);
+                mClient.getListener().onMessage(payload);
             } else {
                 mMode = MODE_BINARY;
                 mBuffer.write(payload);
@@ -290,7 +290,7 @@ public class HybiParser {
             int    code   = (payload.length >= 2) ? 256 * payload[0] + payload[1] : 0;
             String reason = (payload.length >  2) ? encode(slice(payload, 2))     : null;
             Log.d(TAG, "Got close op! " + code + " " + reason);
-            mClient.getHandler().onDisconnect(code, reason);
+            mClient.getListener().onDisconnect(code, reason);
 
         } else if (opcode == OP_PING) {
             if (payload.length > 125) { throw new ProtocolError("Ping payload too large"); }
