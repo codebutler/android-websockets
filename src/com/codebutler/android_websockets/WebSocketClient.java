@@ -1,5 +1,9 @@
 package com.codebutler.android_websockets;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.net.TrafficStats;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.text.TextUtils;
@@ -20,13 +24,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
+@TargetApi(8)
 public class WebSocketClient {
     private static final String TAG = "WebSocketClient";
+    private int mSocketTag = -1;
 
     private URI                      mURI;
     private Listener                 mListener;
@@ -66,8 +73,8 @@ public class WebSocketClient {
         }
 
         mThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
+            @SuppressLint("NewApi")
+			public void run() {
                 try {
                     int port = (mURI.getPort() != -1) ? mURI.getPort() : (mURI.getScheme().equals("wss") ? 443 : 80);
 
@@ -81,6 +88,10 @@ public class WebSocketClient {
 
                     SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
                     mSocket = factory.createSocket(mURI.getHost(), port);
+                    if(Build.VERSION.SDK_INT >= 14 && mSocketTag > 0) {
+                    	TrafficStats.setThreadStatsTag(mSocketTag);
+                    	TrafficStats.tagSocket(mSocket);
+                    }
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
                     out.print("GET " + path + " HTTP/1.1\r\n");
@@ -142,7 +153,6 @@ public class WebSocketClient {
     public void disconnect() {
         if (mSocket != null) {
             mHandler.post(new Runnable() {
-                @Override
                 public void run() {
                     try {
                         mSocket.close();
@@ -205,13 +215,15 @@ public class WebSocketClient {
 
     void sendFrame(final byte[] frame) {
         mHandler.post(new Runnable() {
-            @Override
-            public void run() {
+			@SuppressLint("NewApi")
+			public void run() {
                 try {
                     synchronized (mSendLock) {
                         OutputStream outputStream = mSocket.getOutputStream();
                         outputStream.write(frame);
                         outputStream.flush();
+                        if(Build.VERSION.SDK_INT >= 14)
+                        	TrafficStats.incrementOperationCount(1);
                     }
                 } catch (IOException e) {
                     mListener.onError(e);
@@ -220,6 +232,23 @@ public class WebSocketClient {
         });
     }
 
+    public void setSocketTag(int tag) {
+    	mSocketTag = tag;
+        if(Build.VERSION.SDK_INT >= 14 && mSocketTag > 0 && mSocket != null) {
+        	mHandler.post(new Runnable() {
+                @TargetApi(14)
+				public void run() {
+                    try {
+                    	TrafficStats.setThreadStatsTag(mSocketTag);
+        				TrafficStats.tagSocket(mSocket);
+					} catch (SocketException e) {
+						mListener.onError(e);
+					}
+                }
+        	});
+        }
+    }
+    
     public interface Listener {
         public void onConnect();
         public void onMessage(String message);
