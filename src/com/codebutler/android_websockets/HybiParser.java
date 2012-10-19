@@ -30,12 +30,17 @@
 
 package com.codebutler.android_websockets;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
+import android.net.TrafficStats;
+import android.os.Build;
 import android.util.Log;
 
 import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
+@TargetApi(9)
 public class HybiParser {
     private static final String TAG = "HybiParser";
 
@@ -250,7 +255,8 @@ public class HybiParser {
         mClosed = true;
     }
 
-    private void emitFrame() throws IOException {
+    @SuppressLint("NewApi")
+	private void emitFrame() throws IOException {
         byte[] payload = mask(mPayload, mMask, 0);
         int opcode = mOpcode;
 
@@ -267,6 +273,8 @@ public class HybiParser {
                     mClient.getListener().onMessage(message);
                 }
                 reset();
+                if(Build.VERSION.SDK_INT >= 14)
+                	TrafficStats.incrementOperationCount(1);
             }
 
         } else if (opcode == OP_TEXT) {
@@ -277,6 +285,8 @@ public class HybiParser {
                 mMode = MODE_TEXT;
                 mBuffer.write(payload);
             }
+            if(Build.VERSION.SDK_INT >= 14)
+            	TrafficStats.incrementOperationCount(1);
 
         } else if (opcode == OP_BINARY) {
             if (mFinal) {
@@ -285,6 +295,8 @@ public class HybiParser {
                 mMode = MODE_BINARY;
                 mBuffer.write(payload);
             }
+            if(Build.VERSION.SDK_INT >= 14)
+            	TrafficStats.incrementOperationCount(1);
 
         } else if (opcode == OP_CLOSE) {
             int    code   = (payload.length >= 2) ? 256 * payload[0] + payload[1] : 0;
