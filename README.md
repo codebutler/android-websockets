@@ -86,7 +86,7 @@ JSONArray arguments = new JSONArray();
 arguments.put("first argument");
 JSONObject second = new JSONObject();
 second.put("dictionary", true);
-arguments.put(second)
+arguments.put(second);
 client.emit("hello", arguments);
 client.disconnect();
 ```
