@@ -174,6 +174,7 @@ public class SocketIOClient {
                         mClient.send("2:::");
                     }
                 }, mHeartbeat);
+                mHandler.onConnect();
             }
         }, null);
         mClient.connect();
