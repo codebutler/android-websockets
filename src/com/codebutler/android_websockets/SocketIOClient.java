@@ -116,7 +116,12 @@ public class SocketIOClient {
                         final String dataString = parts[3];
                         JSONObject data = new JSONObject(dataString);
                         String event = data.getString("name");
-                        JSONArray args = data.getJSONArray("args");
+                        JSONArray args;
+                        try {
+                            args = data.getJSONArray("args");
+                        } catch (JSONException e) {
+                            args = new JSONArray();
+                        }
                         if (!"".equals(messageId)) {
                             mSendHandler.post(new Runnable() {
                                 @Override
