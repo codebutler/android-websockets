@@ -1,5 +1,7 @@
 package com.codebutler.android_websockets;
 
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
@@ -27,9 +29,11 @@ public class WebSocketClient {
     private static final String TAG = "WebSocketClient";
 
     private URI                      mURI;
-    private Handler                  mHandler;
+    private Listener                 mListener;
     private Socket                   mSocket;
     private Thread                   mThread;
+    private HandlerThread            mHandlerThread;
+    private Handler                  mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
     private HybiParser               mParser;
 
@@ -41,15 +45,19 @@ public class WebSocketClient {
         sTrustManagers = tm;
     }
 
-    public WebSocketClient(URI uri, Handler handler, List<BasicNameValuePair> extraHeaders) {
+    public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders) {
         mURI          = uri;
-        mHandler      = handler;
+        mListener = listener;
         mExtraHeaders = extraHeaders;
         mParser       = new HybiParser(this);
+
+        mHandlerThread = new HandlerThread("websocket-thread");
+        mHandlerThread.start();
+        mHandler = new Handler(mHandlerThread.getLooper());
     }
 
-    public Handler getHandler() {
-        return mHandler;
+    public Listener getListener() {
+        return mListener;
     }
 
     public void connect() {
@@ -69,7 +77,7 @@ public class WebSocketClient {
                     }
 
                     String originScheme = mURI.getScheme().equals("wss") ? "https" : "http";
-                    URI origin = new URI(originScheme, mURI.getSchemeSpecificPart(), null);
+                    URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
                     SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
                     mSocket = factory.createSocket(mURI.getHost(), port);
@@ -94,7 +102,9 @@ public class WebSocketClient {
 
                     // Read HTTP response status line.
                     StatusLine statusLine = parseStatusLine(readLine(stream));
-                    if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
+                    if (statusLine == null) {
+                        throw new HttpException("Received no reply from server.");
+                    } else if (statusLine.getStatusCode() != HttpStatus.SC_SWITCHING_PROTOCOLS) {
                         throw new HttpResponseException(statusLine.getStatusCode(), statusLine.getReasonPhrase());
                     }
 
@@ -107,32 +117,42 @@ public class WebSocketClient {
                         }
                     }
 
-                    mHandler.onConnect();
+                    mListener.onConnect();
 
                     // Now decode websocket frames.
                     mParser.start(stream);
 
                 } catch (EOFException ex) {
                     Log.d(TAG, "WebSocket EOF!", ex);
-                    mHandler.onDisconnect(0, "EOF");
+                    mListener.onDisconnect(0, "EOF");
 
                 } catch (SSLException ex) {
                     // Connection reset by peer
                     Log.d(TAG, "Websocket SSL error!", ex);
-                    mHandler.onDisconnect(0, "SSL");
+                    mListener.onDisconnect(0, "SSL");
 
                 } catch (Exception ex) {
-                    mHandler.onError(ex);
+                    mListener.onError(ex);
                 }
             }
         });
         mThread.start();
     }
 
-    public void disconnect() throws IOException {
+    public void disconnect() {
         if (mSocket != null) {
-            mSocket.close();
-            mSocket = null;
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        mSocket.close();
+                        mSocket = null;
+                    } catch (IOException ex) {
+                        Log.d(TAG, "Error while disconnecting", ex);
+                        mListener.onError(ex);
+                    }
+                }
+            });
         }
     }
 
@@ -145,11 +165,14 @@ public class WebSocketClient {
     }
 
     private StatusLine parseStatusLine(String line) {
+        if (TextUtils.isEmpty(line)) {
+            return null;
+        }
         return BasicLineParser.parseStatusLine(line, new BasicLineParser());
     }
 
     private Header parseHeader(String line) {
-        return BasicLineParser.parseHeader(line,  new BasicLineParser());
+        return BasicLineParser.parseHeader(line, new BasicLineParser());
     }
 
     // Can't use BufferedReader because it buffers past the HTTP data.
@@ -180,19 +203,24 @@ public class WebSocketClient {
         return Base64.encodeToString(nonce, Base64.DEFAULT).trim();
     }
 
-    void sendFrame(byte[] frame) {
-        try {
-            synchronized (mSendLock) {
-                OutputStream outputStream = mSocket.getOutputStream();
-                outputStream.write(frame);
-                outputStream.flush();
+    void sendFrame(final byte[] frame) {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    synchronized (mSendLock) {
+                        OutputStream outputStream = mSocket.getOutputStream();
+                        outputStream.write(frame);
+                        outputStream.flush();
+                    }
+                } catch (IOException e) {
+                    mListener.onError(e);
+                }
             }
-        } catch (IOException e) {
-            mHandler.onError(e);
-        }
+        });
     }
 
-    public interface Handler {
+    public interface Listener {
         public void onConnect();
         public void onMessage(String message);
         public void onMessage(byte[] data);
