@@ -18,6 +18,7 @@ import org.json.JSONObject;
 
 import android.net.http.AndroidHttpClient;
 import android.os.Looper;
+import android.util.Log;
 
 public class SocketIOClient {
     public static interface Handler {
@@ -30,6 +31,8 @@ public class SocketIOClient {
         public void onError(Exception error);
     }
 
+    private static final String TAG = "SocketIOClient";
+    
     String mURL;
     Handler mHandler;
     String mSession;
@@ -76,7 +79,7 @@ public class SocketIOClient {
         final JSONObject event = new JSONObject();
         event.put("name", name);
         event.put("args", args);
-        System.out.println(event.toString());
+        Log.d(TAG, "Emitting event: " + event.toString());
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -86,7 +89,7 @@ public class SocketIOClient {
     }
 
     private void connectSession() throws URISyntaxException {
-        mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession), new WebSocketClient.Handler() {
+        mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession), new WebSocketClient.Listener() {
             @Override
             public void onMessage(byte[] data) {
                 cleanup();
@@ -96,7 +99,7 @@ public class SocketIOClient {
             @Override
             public void onMessage(String message) {
                 try {
-                    System.out.println(message);
+                    Log.d(TAG, "Message: " + message);
                     String[] parts = message.split(":", 4);
                     int code = Integer.parseInt(parts[0]);
                     switch (code) {
@@ -105,6 +108,7 @@ public class SocketIOClient {
                         break;
                     case 2:
                         // heartbeat
+                        mClient.send("2::");
                         break;
                     case 3:
                         // message
@@ -185,12 +189,9 @@ public class SocketIOClient {
     }
 
     private void cleanup() {
-        try {
-            mClient.disconnect();
-            mClient = null;
-        }
-        catch (IOException e) {
-        }
+        mClient.disconnect();
+        mClient = null;
+       
         mSendLooper.quit();
         mSendLooper = null;
         mSendHandler = null;
