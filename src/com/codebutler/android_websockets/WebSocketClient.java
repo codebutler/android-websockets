@@ -22,6 +22,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URI;
 import java.security.KeyManagementException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
@@ -69,6 +70,8 @@ public class WebSocketClient {
             @Override
             public void run() {
                 try {
+                    String secret = createSecret();
+
                     int port = (mURI.getPort() != -1) ? mURI.getPort() : (mURI.getScheme().equals("wss") ? 443 : 80);
 
                     String path = TextUtils.isEmpty(mURI.getPath()) ? "/" : mURI.getPath();
@@ -88,7 +91,7 @@ public class WebSocketClient {
                     out.print("Connection: Upgrade\r\n");
                     out.print("Host: " + mURI.getHost() + "\r\n");
                     out.print("Origin: " + origin.toString() + "\r\n");
-                    out.print("Sec-WebSocket-Key: " + createSecret() + "\r\n");
+                    out.print("Sec-WebSocket-Key: " + secret + "\r\n");
                     out.print("Sec-WebSocket-Version: 13\r\n");
                     if (mExtraHeaders != null) {
                         for (NameValuePair pair : mExtraHeaders) {
@@ -110,11 +113,24 @@ public class WebSocketClient {
 
                     // Read HTTP response headers.
                     String line;
+                    boolean validated = false;
+
                     while (!TextUtils.isEmpty(line = readLine(stream))) {
                         Header header = parseHeader(line);
                         if (header.getName().equals("Sec-WebSocket-Accept")) {
-                            // FIXME: Verify the response...
+                            String expected = createSecretValidation(secret);
+                            String actual = header.getValue().trim();
+
+                            if (!expected.equals(actual)) {
+                                throw new HttpException("Bad Sec-WebSocket-Accept header value.");
+                            }
+
+                            validated = true;
                         }
+                    }
+
+                    if (!validated) {
+                        throw new HttpException("No Sec-WebSocket-Accept header.");
                     }
 
                     mListener.onConnect();
@@ -201,6 +217,20 @@ public class WebSocketClient {
             nonce[i] = (byte) (Math.random() * 256);
         }
         return Base64.encodeToString(nonce, Base64.DEFAULT).trim();
+    }
+
+    private String createSecretValidation(String secret) {
+        MessageDigest md;
+
+        try {
+            md = MessageDigest.getInstance("SHA-1");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
+        md.update((secret + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes());
+
+        return Base64.encodeToString(md.digest(), Base64.DEFAULT).trim();
     }
 
     void sendFrame(final byte[] frame) {
