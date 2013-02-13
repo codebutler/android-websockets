@@ -1,29 +1,36 @@
 package com.codebutler.android_websockets;
 
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.text.TextUtils;
-import android.util.Base64;
-import android.util.Log;
-import org.apache.http.*;
-import org.apache.http.client.HttpResponseException;
-import org.apache.http.message.BasicLineParser;
-import org.apache.http.message.BasicNameValuePair;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.Socket;
-import java.net.URI;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.util.List;
+
+import org.apache.http.Header;
+import org.apache.http.HttpException;
+import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpResponseException;
+import org.apache.http.message.BasicLineParser;
+import org.apache.http.message.BasicNameValuePair;
+
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
 
 public class WebSocketClient {
     private static final String TAG = "WebSocketClient";
@@ -35,6 +42,7 @@ public class WebSocketClient {
     private HandlerThread            mHandlerThread;
     private Handler                  mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
+    private int                      mTimeout;
     private HybiParser               mParser;
 
     private final Object mSendLock = new Object();
@@ -46,9 +54,14 @@ public class WebSocketClient {
     }
 
     public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders) {
+    	this(uri, listener, extraHeaders, -1);
+    }
+    
+    public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders, int timeout) {
         mURI          = uri;
         mListener = listener;
         mExtraHeaders = extraHeaders;
+        mTimeout = timeout;
         mParser       = new HybiParser(this);
 
         mHandlerThread = new HandlerThread("websocket-thread");
@@ -80,8 +93,15 @@ public class WebSocketClient {
                     URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
                     SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
-                    mSocket = factory.createSocket(mURI.getHost(), port);
-
+                    mSocket = factory.createSocket();
+                    
+                    InetSocketAddress socketAddress = new InetSocketAddress(mURI.getHost(), port);
+                    if(mTimeout != -1) {
+                        mSocket.connect(socketAddress, mTimeout);
+                    } else {
+                    	mSocket.connect(socketAddress);
+                    } 
+                    
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
                     out.print("GET " + path + " HTTP/1.1\r\n");
                     out.print("Upgrade: websocket\r\n");
