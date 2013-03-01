@@ -28,6 +28,10 @@ public class SocketIOClient {
 
         public void onDisconnect(int code, String reason);
 
+        public void onJSONMessage(JSONObject jsonMessage);
+
+        public void onMessage(String message);
+
         public void onError(Exception error);
     }
 
@@ -87,6 +91,27 @@ public class SocketIOClient {
             }
         });
     }
+    
+    public void emit(final String message) {
+        mSendHandler.post(new Runnable() {
+            
+            @Override
+            public void run() {
+                mClient.send(String.format("3:::%s", message));
+            }
+        });
+    }
+    
+    public void emit(final JSONObject jsonMessage) {
+        
+        mSendHandler.post(new Runnable() {
+            
+            @Override
+            public void run() {
+                mClient.send(String.format("4:::%s", jsonMessage.toString()));
+            }
+        });
+    }
 
     private void connectSession() throws URISyntaxException {
         mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession), new WebSocketClient.Listener() {
@@ -110,11 +135,47 @@ public class SocketIOClient {
                         // heartbeat
                         mClient.send("2::");
                         break;
-                    case 3:
+                    case 3: {
                         // message
-                    case 4:
-                        // json message
-                        throw new Exception("message type not supported");
+                        final String messageId = parts[1];
+                        final String dataString = parts[3];
+                        
+                        if(!"".equals(messageId)) {
+                            mSendHandler.post(new Runnable() {
+                                
+                                @Override
+                                public void run() {
+                                    mClient.send(String.format("6:::%s", messageId));
+                                }
+                            });
+                        }
+                        mHandler.onMessage(dataString);
+                        break;
+                    }
+                    case 4: {
+                        //json message
+                        final String messageId = parts[1];
+                        final String dataString = parts[3];
+                        
+                        JSONObject jsonMessage = null;
+                        
+                        try {
+                            jsonMessage = new JSONObject(dataString);
+                        } catch(JSONException e) {
+                            jsonMessage = new JSONObject();
+                        }
+                        if(!"".equals(messageId)) {
+                            mSendHandler.post(new Runnable() {
+                                
+                                @Override
+                                public void run() {
+                                    mClient.send(String.format("6:::%s", messageId));
+                                }
+                            });
+                        }
+                        mHandler.onJSONMessage(jsonMessage);
+                        break;
+                    }
                     case 5: {
                         final String messageId = parts[1];
                         final String dataString = parts[3];
