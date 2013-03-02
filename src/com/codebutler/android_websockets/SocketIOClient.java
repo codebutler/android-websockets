@@ -28,7 +28,7 @@ public class SocketIOClient {
 
         public void onDisconnect(int code, String reason);
 
-        public void onJSONMessage(JSONObject jsonMessage);
+        public void onJSON(JSONObject json);
 
         public void onMessage(String message);
 
@@ -173,7 +173,7 @@ public class SocketIOClient {
                                 }
                             });
                         }
-                        mHandler.onJSONMessage(jsonMessage);
+                        mHandler.onJSON(jsonMessage);
                         break;
                     }
                     case 5: {
