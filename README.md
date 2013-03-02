@@ -99,8 +99,8 @@ client.emit("Message"); //Message
 JSONArray arguments = new JSONArray();
 arguments.put("first argument");
 JSONObject second = new JSONObject();
-client.emit(second); //JSON Message
 second.put("dictionary", true);
+client.emit(second); //JSON Message
 arguments.put(second);
 client.emit("hello", arguments); //Event
 client.disconnect();
