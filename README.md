@@ -67,6 +67,19 @@ SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new 
     public void on(String event, JSONArray arguments) {
         Log.d(TAG, String.format("Got event %s: %s", event, arguments.toString()));
     }
+    
+    @Override
+    public void onJSON(JSONObject json) {
+    	try {
+    		Log.d(TAG, String.format("Got JSON Object: %s", json.toString()));
+    	} catch(JSONException e) {
+    	}
+    }
+
+    @Override
+    public void onMessage(String message) {
+    	Log.d(TAG, String.format("Got message: %s", message));
+    }
 
     @Override
     public void onDisconnect(int code, String reason) {
@@ -82,12 +95,14 @@ SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new 
 client.connect();
 
 // Later… 
+client.emit("Message"); //Message
 JSONArray arguments = new JSONArray();
 arguments.put("first argument");
 JSONObject second = new JSONObject();
+client.emit(second); //JSON Message
 second.put("dictionary", true);
 arguments.put(second);
-client.emit("hello", arguments);
+client.emit("hello", arguments); //Event
 client.disconnect();
 ```
 
