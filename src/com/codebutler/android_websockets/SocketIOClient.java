@@ -129,7 +129,8 @@ public class SocketIOClient {
                     int code = Integer.parseInt(parts[0]);
                     switch (code) {
                     case 1:
-                        onConnect();
+                        // connect
+                        mHandler.onConnect();
                         break;
                     case 2:
                         // heartbeat
@@ -239,7 +240,6 @@ public class SocketIOClient {
                         mClient.send("2:::");
                     }
                 }, mHeartbeat);
-                mHandler.onConnect();
             }
         }, null);
         mClient.connect();
