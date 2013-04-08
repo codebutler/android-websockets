@@ -36,6 +36,7 @@ public class WebSocketClient {
     private Handler                  mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
     private HybiParser               mParser;
+    private boolean                  mConnected;
 
     private final Object mSendLock = new Object();
 
@@ -47,8 +48,9 @@ public class WebSocketClient {
 
     public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders) {
         mURI          = uri;
-        mListener = listener;
+        mListener     = listener;
         mExtraHeaders = extraHeaders;
+        mConnected    = false;
         mParser       = new HybiParser(this);
 
         mHandlerThread = new HandlerThread("websocket-thread");
@@ -119,17 +121,21 @@ public class WebSocketClient {
 
                     mListener.onConnect();
 
+                    mConnected = true;
+
                     // Now decode websocket frames.
                     mParser.start(stream);
 
                 } catch (EOFException ex) {
                     Log.d(TAG, "WebSocket EOF!", ex);
                     mListener.onDisconnect(0, "EOF");
+                    mConnected = false;
 
                 } catch (SSLException ex) {
                     // Connection reset by peer
                     Log.d(TAG, "Websocket SSL error!", ex);
                     mListener.onDisconnect(0, "SSL");
+                    mConnected = false;
 
                 } catch (Exception ex) {
                     mListener.onError(ex);
@@ -147,6 +153,7 @@ public class WebSocketClient {
                     try {
                         mSocket.close();
                         mSocket = null;
+                        mConnected = false;
                     } catch (IOException ex) {
                         Log.d(TAG, "Error while disconnecting", ex);
                         mListener.onError(ex);
@@ -162,6 +169,10 @@ public class WebSocketClient {
 
     public void send(byte[] data) {
         sendFrame(mParser.frame(data));
+    }
+
+    public boolean isConnected() {
+        return mConnected;
     }
 
     private StatusLine parseStatusLine(String line) {
