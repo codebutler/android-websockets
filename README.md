@@ -1,16 +1,18 @@
-# WebSocket client for Android
+# WebSocket and Socket.IO client for Android
 
-A very simple bare-minimum WebSocket client for Android.
+A very simple bare-minimum WebSocket and Socket.IO client for Android.
 
 ## Credits
 
 The hybi parser is based on code from the [faye project](https://github.com/faye/faye-websocket-node). Faye is Copyright (c) 2009-2012 James Coglan. Many thanks for the great open-source library!
 
-Ported from JavaScript to Java by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
+The hybi parser was ported from JavaScript to Java by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
 
-## Usage
+The WebSocket client was written by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
 
-Here's the entire API:
+The Socket.IO client was written by [Koushik Dutta](https://twitter.com/koush).
+
+## WebSocket Usage
 
 ```java
 List<BasicNameValuePair> extraHeaders = Arrays.asList(
@@ -52,6 +54,59 @@ client.send(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF });
 client.disconnect();
 ```
 
+## Socket.IO Usage
+
+```java
+SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new SocketIOClient.Handler() {
+    @Override
+    public void onConnect() {
+        Log.d(TAG, "Connected!");
+    }
+
+    @Override
+    public void on(String event, JSONArray arguments) {
+        Log.d(TAG, String.format("Got event %s: %s", event, arguments.toString()));
+    }
+    
+    @Override
+    public void onJSON(JSONObject json) {
+    	try {
+    		Log.d(TAG, String.format("Got JSON Object: %s", json.toString()));
+    	} catch(JSONException e) {
+    	}
+    }
+
+    @Override
+    public void onMessage(String message) {
+    	Log.d(TAG, String.format("Got message: %s", message));
+    }
+
+    @Override
+    public void onDisconnect(int code, String reason) {
+        Log.d(TAG, String.format("Disconnected! Code: %d Reason: %s", code, reason));
+    }
+
+    @Override
+    public void onError(Exception error) {
+        Log.e(TAG, "Error!", error);
+    }
+});
+
+client.connect();
+
+// Later… 
+client.emit("Message"); //Message
+JSONArray arguments = new JSONArray();
+arguments.put("first argument");
+JSONObject second = new JSONObject();
+second.put("dictionary", true);
+client.emit(second); //JSON Message
+arguments.put(second);
+client.emit("hello", arguments); //Event
+client.disconnect();
+```
+
+
 
 ## TODO
 
@@ -64,6 +119,7 @@ client.disconnect();
 	
 	Copyright (c) 2009-2012 James Coglan
 	Copyright (c) 2012 Eric Butler 
+	Copyright (c) 2012 Koushik Dutta 
 	
 	Permission is hereby granted, free of charge, to any person obtaining a copy of
 	this software and associated documentation files (the 'Software'), to deal in
