@@ -16,10 +16,10 @@ The Socket.IO client was written by [Koushik Dutta](https://twitter.com/koush).
 
 ```java
 List<BasicNameValuePair> extraHeaders = Arrays.asList(
-    new BasicNameValuePair("Cookie", "session=abcd");
+    new BasicNameValuePair("Cookie", "session=abcd")
 );
 
-WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), new WebSocketClient.Handler() {
+WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), new WebSocketClient.Listener() {
     @Override
     public void onConnect() {
         Log.d(TAG, "Connected!");
@@ -32,7 +32,7 @@ WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), n
 
     @Override
     public void onMessage(byte[] data) {
-        Log.d(TAG, String.format("Got binary message! %s", toHexString(data));
+        Log.d(TAG, String.format("Got binary message! %s", toHexString(data)));
     }
 
     @Override
