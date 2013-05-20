@@ -18,6 +18,7 @@ import org.json.JSONObject;
 
 import android.net.http.AndroidHttpClient;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.util.Log;
 
 public class SocketIOClient {
@@ -36,16 +37,28 @@ public class SocketIOClient {
     }
 
     private static final String TAG = "SocketIOClient";
-    
+
     String mURL;
     Handler mHandler;
     String mSession;
     int mHeartbeat;
     WebSocketClient mClient;
+    String mEndpoint;
 
     public SocketIOClient(URI uri, Handler handler) {
-        // remove trailing "/" from URI, in case user provided e.g. http://test.com/
-        mURL = uri.toString().replaceAll("/$", "") + "/socket.io/1/";
+        this(uri, handler, null);
+    }
+
+    public SocketIOClient(URI uri, Handler handler, String namespace) {
+        mEndpoint = namespace;
+
+        if (TextUtils.isEmpty(namespace)) {
+            mEndpoint = "socket.io";
+        }
+
+        // remove trailing "/" from URI, in case user provided e.g.
+        // http://test.com/
+        mURL = uri.toString().replaceAll("/$", "") + "/" + mEndpoint + "/1/";
         mHandler = handler;
     }
 
@@ -54,8 +67,7 @@ public class SocketIOClient {
         try {
             HttpResponse res = client.execute(req);
             return readToEnd(res.getEntity().getContent());
-        }
-        finally {
+        } finally {
             client.close();
         }
     }
@@ -91,21 +103,21 @@ public class SocketIOClient {
             }
         });
     }
-    
+
     public void emit(final String message) {
         mSendHandler.post(new Runnable() {
-            
+
             @Override
             public void run() {
                 mClient.send(String.format("3:::%s", message));
             }
         });
     }
-    
+
     public void emit(final JSONObject jsonMessage) {
-        
+
         mSendHandler.post(new Runnable() {
-            
+
             @Override
             public void run() {
                 mClient.send(String.format("4:::%s", jsonMessage.toString()));
@@ -140,10 +152,10 @@ public class SocketIOClient {
                         // message
                         final String messageId = parts[1];
                         final String dataString = parts[3];
-                        
-                        if(!"".equals(messageId)) {
+
+                        if (!"".equals(messageId)) {
                             mSendHandler.post(new Runnable() {
-                                
+
                                 @Override
                                 public void run() {
                                     mClient.send(String.format("6:::%s", messageId));
@@ -154,20 +166,20 @@ public class SocketIOClient {
                         break;
                     }
                     case 4: {
-                        //json message
+                        // json message
                         final String messageId = parts[1];
                         final String dataString = parts[3];
-                        
+
                         JSONObject jsonMessage = null;
-                        
+
                         try {
                             jsonMessage = new JSONObject(dataString);
-                        } catch(JSONException e) {
+                        } catch (JSONException e) {
                             jsonMessage = new JSONObject();
                         }
-                        if(!"".equals(messageId)) {
+                        if (!"".equals(messageId)) {
                             mSendHandler.post(new Runnable() {
-                                
+
                                 @Override
                                 public void run() {
                                     mClient.send(String.format("6:::%s", messageId));
@@ -211,8 +223,7 @@ public class SocketIOClient {
                     default:
                         throw new Exception("unknown code");
                     }
-                }
-                catch (Exception ex) {
+                } catch (Exception ex) {
                     cleanup();
                     onError(ex);
                 }
@@ -252,7 +263,7 @@ public class SocketIOClient {
     private void cleanup() {
         mClient.disconnect();
         mClient = null;
-       
+
         mSendLooper.quit();
         mSendLooper = null;
         mSendHandler = null;
@@ -284,12 +295,68 @@ public class SocketIOClient {
                     connectSession();
 
                     Looper.loop();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     mHandler.onError(e);
                 }
             };
         }.start();
     }
-}
 
+    /**
+     * Connect to an endpoint
+     */
+    public void connectToEndpoint(final String endpoint) {
+
+        if (mClient.isConnected() && !TextUtils.isEmpty(endpoint)) {
+            mEndpoint = endpoint;
+            mSendHandler.post(new Runnable() {
+
+                @Override
+                public void run() {
+                    mClient.send("1::" + endpoint);
+                }
+            });
+        }
+    }
+
+    /**
+     * Disconnect from an endpoint or socket
+     * 
+     * @param endpoint
+     *            {@code null} to disconnect the entire socket, otherwise the
+     *            endpoint to disconnect from
+     */
+    public void sendDisconnect(final String endpoint) {
+
+        if (TextUtils.isEmpty(endpoint)) {
+
+            mSendHandler.post(new Runnable() {
+
+                @Override
+                public void run() {
+                    mClient.send("0");
+                }
+            });
+        }
+
+        else {
+            mSendHandler.post(new Runnable() {
+
+                @Override
+                public void run() {
+                    mClient.send("0::" + endpoint);
+                }
+            });
+        }
+    }
+
+    /**
+     * Get the current connected endpoint
+     * 
+     * @return The current connected endpoint, "socket.io" if connected to the
+     *         default endpoint
+     */
+    public String getConnectedEndpoint() {
+        return mEndpoint;
+    }
+}
