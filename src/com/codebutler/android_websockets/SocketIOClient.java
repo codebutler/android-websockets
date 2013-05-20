@@ -267,7 +267,8 @@ public class SocketIOClient {
     }
 
     private void cleanup() {
-        mClient.disconnect();
+        if (mClient != null)
+            mClient.disconnect();
         mClient = null;
 
         mSendLooper.quit();
