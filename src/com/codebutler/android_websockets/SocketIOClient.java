@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -20,6 +21,7 @@ import android.net.http.AndroidHttpClient;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.SparseArray;
 
 public class SocketIOClient {
     public static interface Handler {
@@ -38,6 +40,10 @@ public class SocketIOClient {
         public void onError(Exception error);
     }
 
+    public static interface Acknowledge {
+        public void acknowledge(String[] args);
+    }
+
     private static final String TAG = "SocketIOClient";
 
     String mURL;
@@ -46,6 +52,8 @@ public class SocketIOClient {
     int mHeartbeat;
     WebSocketClient mClient;
     String mEndpoint;
+    private AtomicInteger mMessageIdCounter;
+    private SparseArray<Acknowledge> mAcknowledges;
 
     public SocketIOClient(URI uri, Handler handler) {
         this(uri, handler, null);
@@ -53,7 +61,8 @@ public class SocketIOClient {
 
     public SocketIOClient(URI uri, Handler handler, String namespace) {
         mEndpoint = namespace;
-
+        mAcknowledges = new SparseArray<SocketIOClient.Acknowledge>();
+        mMessageIdCounter = new AtomicInteger(0);
         if (TextUtils.isEmpty(namespace)) {
             mEndpoint = "socket.io";
         }
@@ -72,6 +81,10 @@ public class SocketIOClient {
         } finally {
             client.close();
         }
+    }
+
+    private int getNextMessageId() {
+        return mMessageIdCounter.incrementAndGet();
     }
 
     private static byte[] readToEndAsArray(InputStream input) throws IOException {
@@ -94,35 +107,60 @@ public class SocketIOClient {
     Looper mSendLooper;
 
     public void emit(String name, JSONArray args) throws JSONException {
+        emit(name, args, null);
+    }
+
+    public void emit(String name, JSONArray args, Acknowledge acknowledge) throws JSONException {
         final JSONObject event = new JSONObject();
         event.put("name", name);
         event.put("args", args);
-        Log.d(TAG, "Emitting event: " + event.toString());
+
+        final int nextId = getNextMessageId();
+        if (acknowledge != null) {
+            mAcknowledges.put(nextId, acknowledge);
+        }
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
-                mClient.send(String.format("5:::%s", event.toString()));
+                mClient.send(String.format("5:" + nextId + "+::%s", event.toString()));
+            }
+        });
+    }
+
+    public void emit(final JSONObject jsonMessage) throws JSONException {
+        emit(jsonMessage, null);
+    }
+
+    public void emit(final JSONObject jsonMessage, Acknowledge acknowledge) throws JSONException {
+
+        final int nextId = getNextMessageId();
+        if (acknowledge != null) {
+            mAcknowledges.put(nextId, acknowledge);
+        }
+        mSendHandler.post(new Runnable() {
+
+            @Override
+            public void run() {
+                mClient.send(String.format("4:" + nextId + "+::%s", jsonMessage.toString()));
             }
         });
     }
 
     public void emit(final String message) {
-        mSendHandler.post(new Runnable() {
-
-            @Override
-            public void run() {
-                mClient.send(String.format("3:::%s", message));
-            }
-        });
+        emit(message, (Acknowledge) null);
     }
 
-    public void emit(final JSONObject jsonMessage) {
+    public void emit(final String message, Acknowledge acknowledge) {
 
+        final int nextId = getNextMessageId();
+        if (acknowledge != null) {
+            mAcknowledges.put(nextId, acknowledge);
+        }
         mSendHandler.post(new Runnable() {
 
             @Override
             public void run() {
-                mClient.send(String.format("4:::%s", jsonMessage.toString()));
+                mClient.send(String.format("3:" + nextId + "+::%s", message));
             }
         });
     }
@@ -219,6 +257,29 @@ public class SocketIOClient {
                     }
                     case 6:
                         // ACK
+                        if (parts[3] != null && parts[3].contains("+")) {
+                            String[] ackParts = parts[3].split("\\+");
+                            int ackId = Integer.valueOf(ackParts[0]);
+
+                            String ackArgs = ackParts[1];
+
+                            int startIndex = ackArgs.indexOf('[') + 1;
+
+                            ackArgs = ackArgs.substring(startIndex, ackArgs.length() - 1);
+
+                            Acknowledge acknowledge = mAcknowledges.get(ackId);
+
+                            if (acknowledge != null) {
+
+                                String[] params = ackArgs.split(",");
+                                for (int i = 0; i < params.length; i++) {
+                                    params[i] = params[i].replace("\"", "");
+                                }
+                                acknowledge.acknowledge(params);
+                            }
+
+                            mAcknowledges.remove(ackId);
+                        }
                         break;
                     case 7:
                         // error
@@ -270,7 +331,8 @@ public class SocketIOClient {
         if (mClient != null)
             mClient.disconnect();
         mClient = null;
-
+        mMessageIdCounter.set(0);
+        mAcknowledges.clear();
         mSendLooper.quit();
         mSendLooper = null;
         mSendHandler = null;
