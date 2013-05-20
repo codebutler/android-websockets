@@ -25,6 +25,8 @@ public class SocketIOClient {
     public static interface Handler {
         public void onConnect();
 
+        public void onConnectToEndpoint(String endpoint);
+
         public void on(String event, JSONArray arguments);
 
         public void onDisconnect(int code, String reason);
@@ -142,7 +144,11 @@ public class SocketIOClient {
                     switch (code) {
                     case 1:
                         // connect
-                        mHandler.onConnect();
+                        if (!TextUtils.isEmpty(parts[2])) {
+                            mHandler.onConnectToEndpoint(parts[2]);
+                        } else {
+                            mHandler.onConnect();
+                        }
                         break;
                     case 2:
                         // heartbeat
