@@ -45,10 +45,6 @@ WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), n
         Log.e(TAG, "Error!", error);
     }
 
-    @Override
-    public void onConnectToEndpoint(String endpoint) {
-        Log.d(TAG, "Connected to endpoint")
-    }
 }, extraHeaders);
 
 client.connect();
