@@ -90,6 +90,11 @@ SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new 
     public void onError(Exception error) {
         Log.e(TAG, "Error!", error);
     }
+    
+    @Override
+    public void onConnectToEndpoint(String endpoint) {
+    	Log.d(TAG, "Connected to:" + endpoint);
+    }
 });
 
 client.connect();
@@ -104,6 +109,22 @@ client.emit(second); //JSON Message
 arguments.put(second);
 client.emit("hello", arguments); //Event
 client.disconnect();
+
+/*How to use Acknowledges
+*Call any of the emit() methods 
+*with the Acknowledge parameter.
+*
+*Each message must have a new
+*Acknowledge object as they
+*are matched against the Message Id.
+*/
+client.emit("Message", new Acknowledge {
+
+	@Override
+	public void acknowledge(String[] args) {
+		//Perform your acknowledge handling here
+	}
+});
 ```
 
 
