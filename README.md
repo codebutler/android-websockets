@@ -90,6 +90,11 @@ SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new 
     public void onError(Exception error) {
         Log.e(TAG, "Error!", error);
     }
+    
+    @Override
+    public void onConnectToEndpoint(String endpoint) {
+        Log.d(TAG, "Connected to endpoint")
+    }
 });
 
 client.connect();
