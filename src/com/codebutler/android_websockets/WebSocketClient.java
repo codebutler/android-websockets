@@ -150,14 +150,16 @@ public class WebSocketClient {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    try {
-                        mSocket.close();
+                    if (mSocket != null) {
+                        try {
+                            mSocket.close();
+                        } catch (IOException ex) {
+                            Log.d(TAG, "Error while disconnecting", ex);
+                            mListener.onError(ex);
+                        }
                         mSocket = null;
-                        mConnected = false;
-                    } catch (IOException ex) {
-                        Log.d(TAG, "Error while disconnecting", ex);
-                        mListener.onError(ex);
                     }
+                    mConnected = false;
                 }
             });
         }
