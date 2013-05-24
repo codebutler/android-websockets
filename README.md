@@ -44,6 +44,7 @@ WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), n
     public void onError(Exception error) {
         Log.e(TAG, "Error!", error);
     }
+
 }, extraHeaders);
 
 client.connect();
@@ -94,6 +95,7 @@ SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new 
     @Override
     public void onConnectToEndpoint(String endpoint) {
     	Log.d(TAG, "Connected to:" + endpoint);
+
     }
 });
 
