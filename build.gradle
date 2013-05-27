@@ -1,0 +1,9 @@
+def android_jar = new File(System.getenv('ANDROID_HOME'), '/platforms/android-17/android.jar')
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.5
+
+dependencies {
+  compile files(android_jar)
+}
