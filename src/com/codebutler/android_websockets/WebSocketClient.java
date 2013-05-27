@@ -209,6 +209,9 @@ public class WebSocketClient {
             public void run() {
                 try {
                     synchronized (mSendLock) {
+                        if (mSocket == null) {
+                            throw new IllegalStateException("Socket not connected");
+                        }
                         OutputStream outputStream = mSocket.getOutputStream();
                         outputStream.write(frame);
                         outputStream.flush();
