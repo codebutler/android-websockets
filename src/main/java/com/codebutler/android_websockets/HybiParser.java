@@ -362,17 +362,7 @@ public class HybiParser {
 
         public byte[] readBytes(int length) throws IOException {
             byte[] buffer = new byte[length];
-            int total = 0;
-            while (total < length) {
-                int count = read(buffer, total, length - total);
-                if (count == -1) {
-                    break;
-                }
-                total += count;
-            }
-            if (total != length) {
-                throw new IOException(String.format("Read wrong number of bytes. Got: %s, Expected: %s.", total, length));
-            }
+            readFully(buffer);
             return buffer;
         }
     }
