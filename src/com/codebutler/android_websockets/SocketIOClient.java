@@ -291,7 +291,6 @@ public class SocketIOClient {
                         throw new Exception("unknown code");
                     }
                 } catch (Exception ex) {
-                    cleanup();
                     onError(ex);
                 }
             }
