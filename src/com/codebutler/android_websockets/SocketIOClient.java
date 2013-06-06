@@ -110,7 +110,7 @@ public class SocketIOClient {
         emit(name, args, null);
     }
 
-    public void emit(String name, JSONArray args, Acknowledge acknowledge) throws JSONException {
+    public void emit(String name, JSONArray args, final Acknowledge acknowledge) throws JSONException {
         final JSONObject event = new JSONObject();
         event.put("name", name);
         event.put("args", args);
@@ -122,7 +122,7 @@ public class SocketIOClient {
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
-                mClient.send(String.format("5:" + nextId + "+::%s", event.toString()));
+                mClient.send(String.format("5:" + nextId + (acknowledge == null ? "" : "+") +"::%s", event.toString()));
             }
         });
     }
@@ -131,7 +131,7 @@ public class SocketIOClient {
         emit(jsonMessage, null);
     }
 
-    public void emit(final JSONObject jsonMessage, Acknowledge acknowledge) throws JSONException {
+    public void emit(final JSONObject jsonMessage, final Acknowledge acknowledge) throws JSONException {
 
         final int nextId = getNextMessageId();
         if (acknowledge != null) {
@@ -141,7 +141,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("4:" + nextId + "+::%s", jsonMessage.toString()));
+                mClient.send(String.format("4:" + nextId + (acknowledge == null ? "" : "+") + "::%s", jsonMessage.toString()));
             }
         });
     }
@@ -150,7 +150,7 @@ public class SocketIOClient {
         emit(message, (Acknowledge) null);
     }
 
-    public void emit(final String message, Acknowledge acknowledge) {
+    public void emit(final String message, final Acknowledge acknowledge) {
 
         final int nextId = getNextMessageId();
         if (acknowledge != null) {
@@ -160,7 +160,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("3:" + nextId + "+::%s", message));
+                mClient.send(String.format("3:" + nextId + (acknowledge == null ? "" : "+") +"::%s", message));
             }
         });
     }
