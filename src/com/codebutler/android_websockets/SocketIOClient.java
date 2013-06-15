@@ -87,8 +87,7 @@ public class SocketIOClient {
     }
 
     private static String downloadUriAsString(final HttpUriRequest req) throws IOException {
-        AndroidHttpClient client = AndroidHttpClient
-                .newInstance("android-websockets");
+        AndroidHttpClient client = AndroidHttpClient.newInstance("android-websockets");
         try {
             HttpResponse res = client.execute(req);
             return readToEnd(res.getEntity().getContent());
@@ -137,8 +136,7 @@ public class SocketIOClient {
             @Override
             public void run() {
                 mClient.send(String.format("5:" + nextId
-                        + (acknowledge == null ? "" : "+") + "::%s",
-                        event.toString()));
+                        + (acknowledge == null ? "" : "+") + "::%s", event.toString()));
             }
         });
     }
@@ -158,8 +156,7 @@ public class SocketIOClient {
             @Override
             public void run() {
                 mClient.send(String.format("4:" + nextId
-                        + (acknowledge == null ? "" : "+") + "::%s",
-                        jsonMessage.toString()));
+                        + (acknowledge == null ? "" : "+") + "::%s", jsonMessage.toString()));
             }
         });
     }
@@ -185,206 +182,197 @@ public class SocketIOClient {
     }
 
     private void connectSession() throws URISyntaxException {
-        mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession),
-                new WebSocketClient.Listener() {
-                    @Override
-                    public void onMessage(byte[] data) {
-                        cleanup();
-                        mHandler
-                                .onError(new Exception("Unexpected binary data"));
-                    }
+        mClient = new WebSocketClient(new URI(mURL + "websocket/" + mSession), new WebSocketClient.Listener() {
+            @Override
+            public void onMessage(byte[] data) {
+                cleanup();
+                mHandler.onError(new Exception("Unexpected binary data"));
+            }
 
-                    @Override
-                    public void onMessage(String message) {
-                        try {
-                            Log.d(TAG, "Message: " + message);
-                            String[] parts = message.split(":", 4);
-                            int code = Integer.parseInt(parts[0]);
-                            switch (code) {
-                            case 1:
-                                // connect
-                                if (!TextUtils.isEmpty(parts[2])) {
-                                    mHandler.onConnectToEndpoint(parts[2]);
-                                } else {
-                                    mHandler.onConnect();
-                                }
-                                break;
-                            case 2:
-                                // heartbeat
-                                mClient.send("2::");
-                                break;
-                            case 3: {
-                                // message
-                                final String messageId = parts[1];
-                                final String dataString = parts[3];
-
-                                if (!"".equals(messageId)) {
-                                    mSendHandler.post(new Runnable() {
-
-                                        @Override
-                                        public void run() {
-                                            mClient.send(String.format(
-                                                    "6:::%s", messageId));
-                                        }
-                                    });
-                                }
-                                mHandler.onMessage(dataString);
-                                break;
-                            }
-                            case 4: {
-                                // json message
-                                final String messageId = parts[1];
-                                final String dataString = parts[3];
-
-                                JSONObject jsonMessage = null;
-
-                                try {
-                                    jsonMessage = new JSONObject(dataString);
-                                } catch (JSONException e) {
-                                    jsonMessage = new JSONObject();
-                                }
-                                if (!"".equals(messageId)) {
-                                    mSendHandler.post(new Runnable() {
-
-                                        @Override
-                                        public void run() {
-                                            mClient.send(String.format(
-                                                    "6:::%s", messageId));
-                                        }
-                                    });
-                                }
-                                mHandler.onJSON(jsonMessage);
-                                break;
-                            }
-                            case 5: {
-                                final String messageId = parts[1];
-                                final String dataString = parts[3];
-                                JSONObject data = new JSONObject(dataString);
-                                String event = data.getString("name");
-                                JSONArray args;
-                                try {
-                                    args = data.getJSONArray("args");
-                                } catch (JSONException e) {
-                                    args = new JSONArray();
-                                }
-                                if (!"".equals(messageId)) {
-                                    mSendHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            mClient.send(String.format(
-                                                    "6:::%s", messageId));
-                                        }
-                                    });
-                                }
-                                mHandler.on(event, args);
-                                break;
-                            }
-                            case 6:
-                                // ACK
-                                if (parts[3] != null && parts[3].contains("+")) {
-                                    String[] ackParts = parts[3].split("\\+");
-                                    int ackId = Integer.valueOf(ackParts[0]);
-
-                                    String ackArgs = ackParts[1];
-
-                                    int startIndex = ackArgs.indexOf('[') + 1;
-
-                                    ackArgs = ackArgs.substring(startIndex,
-                                            ackArgs.length() - 1);
-
-                                    Acknowledge acknowledge = mAcknowledges
-                                            .get(ackId);
-
-                                    if (acknowledge != null) {
-
-                                        String[] params = ackArgs.split(",");
-                                        for (int i = 0; i < params.length; i++) {
-                                            params[i] = params[i].replace("\"",
-                                                    "");
-                                        }
-                                        acknowledge.acknowledge(params);
-                                    }
-
-                                    mAcknowledges.remove(ackId);
-                                }
-                                break;
-                            case 7:
-                                // error
-                                throw new Exception(message);
-                            case 8:
-                                // noop
-                                break;
-                            default:
-                                throw new Exception("unknown code");
-                            }
-                        } catch (Exception ex) {
-                            onError(ex);
+            @Override
+            public void onMessage(String message) {
+                try {
+                    Log.d(TAG, "Message: " + message);
+                    String[] parts = message.split(":", 4);
+                    int code = Integer.parseInt(parts[0]);
+                    switch (code) {
+                    case 1:
+                        // connect
+                        if (!TextUtils.isEmpty(parts[2])) {
+                            mHandler.onConnectToEndpoint(parts[2]);
+                        } else {
+                            mHandler.onConnect();
                         }
-                    }
+                        break;
+                    case 2:
+                        // heartbeat
+                        mClient.send("2::");
+                        break;
+                    case 3: {
+                        // message
+                        final String messageId = parts[1];
+                        final String dataString = parts[3];
 
-                    @Override
-                    public void onError(Exception error) {
-
-                        // Removed call to cleanup because now we can
-                        // reconnect automatically so we need the mSendHandler
-                        // instance
-                        mHandler.onError(error);
-
-                        if (mReconnectOnError) {
-                            
-                            if (mClient != null)
-                                mClient.disconnect();
-                            mClient = null;
-                            mMessageIdCounter.set(0);
-                            mAcknowledges.clear();
-                            
-                            mSendHandler.postDelayed(new Runnable() {
+                        if (!"".equals(messageId)) {
+                            mSendHandler.post(new Runnable() {
 
                                 @Override
                                 public void run() {
-
-                                    // Doing this check here because the client
-                                    // can be forcibly connected before the
-                                    // Runnable runs
-                                    if (!mClient.isConnected()) {
-                                        connect();
-                                    }
-
+                                    mClient.send(String.format("6:::%s", messageId));
                                 }
-                            }, getDelayInMillis());
+                            });
                         }
+                        mHandler.onMessage(dataString);
+                        break;
+                    }
+                    case 4: {
+                        // json message
+                        final String messageId = parts[1];
+                        final String dataString = parts[3];
 
-                        else {
-                            cleanup();
+                        JSONObject jsonMessage = null;
+
+                        try {
+                            jsonMessage = new JSONObject(dataString);
+                        } catch (JSONException e) {
+                            jsonMessage = new JSONObject();
                         }
-                    }
+                        if (!"".equals(messageId)) {
+                            mSendHandler.post(new Runnable() {
 
-                    @Override
-                    public void onDisconnect(int code, String reason) {
-                        cleanup();
-                        // attempt reconnect with same session?
-                        mHandler.onDisconnect(code, reason);
+                                @Override
+                                public void run() {
+                                    mClient.send(String.format("6:::%s", messageId));
+                                }
+                            });
+                        }
+                        mHandler.onJSON(jsonMessage);
+                        break;
                     }
+                    case 5: {
+                        final String messageId = parts[1];
+                        final String dataString = parts[3];
+                        JSONObject data = new JSONObject(dataString);
+                        String event = data.getString("name");
+                        JSONArray args;
+                        try {
+                            args = data.getJSONArray("args");
+                        } catch (JSONException e) {
+                            args = new JSONArray();
+                        }
+                        if (!"".equals(messageId)) {
+                            mSendHandler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mClient.send(String.format("6:::%s", messageId));
+                                }
+                            });
+                        }
+                        mHandler.on(event, args);
+                        break;
+                    }
+                    case 6:
+                        // ACK
+                        if (parts[3] != null && parts[3].contains("+")) {
+                            String[] ackParts = parts[3].split("\\+");
+                            int ackId = Integer.valueOf(ackParts[0]);
 
-                    @Override
-                    public void onConnect() {
-                        mConnectPower = 1;
-                        mSendHandler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                mSendHandler.postDelayed(this, mHeartbeat);
-                                mClient.send("2:::");
+                            String ackArgs = ackParts[1];
+
+                            int startIndex = ackArgs.indexOf('[') + 1;
+
+                            ackArgs = ackArgs.substring(startIndex, ackArgs.length() - 1);
+
+                            Acknowledge acknowledge = mAcknowledges.get(ackId);
+
+                            if (acknowledge != null) {
+
+                                String[] params = ackArgs.split(",");
+                                for (int i = 0; i < params.length; i++) {
+                                    params[i] = params[i].replace("\"", "");
+                                }
+                                acknowledge.acknowledge(params);
                             }
-                        }, mHeartbeat);
+
+                            mAcknowledges.remove(ackId);
+                        }
+                        break;
+                    case 7:
+                        // error
+                        throw new Exception(message);
+                    case 8:
+                        // noop
+                        break;
+                    default:
+                        throw new Exception("unknown code");
                     }
-                }, null);
+                } catch (Exception ex) {
+                    onError(ex);
+                }
+            }
+
+            @Override
+            public void onError(Exception error) {
+
+                // Removed call to cleanup because now we can
+                // reconnect automatically so we need the mSendHandler
+                // instance
+                mHandler.onError(error);
+
+                if (mReconnectOnError) {
+
+                    if (mClient != null)
+                        mClient.disconnect();
+                    mClient = null;
+                    mMessageIdCounter.set(0);
+                    mAcknowledges.clear();
+
+                    mSendHandler.postDelayed(new Runnable() {
+
+                        @Override
+                        public void run() {
+
+                            // Doing this check here because the client
+                            // can be forcibly connected before the
+                            // Runnable runs
+                            if (!mClient.isConnected()) {
+                                connect();
+                            }
+
+                        }
+                    }, getDelayInMillis());
+                }
+
+                else {
+                    cleanup();
+                }
+            }
+
+            @Override
+            public void onDisconnect(int code, String reason) {
+                cleanup();
+                // attempt reconnect with same session?
+                mHandler.onDisconnect(code, reason);
+            }
+
+            @Override
+            public void onConnect() {
+                mConnectPower = 1;
+                mSendHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mSendHandler.postDelayed(this, mHeartbeat);
+                        mClient.send("2:::");
+                    }
+                }, mHeartbeat);
+            }
+        }, null);
         mClient.connect();
     }
 
     private long getDelayInMillis() {
-        return (long) (Math.pow(CONNECT_MULTIPLIER,
-                (mConnectPower == MAX_CONNECT_POWER) ? MAX_CONNECT_POWER
-                        : mConnectPower++) * 1000);
+        return (long) (Math.pow(CONNECT_MULTIPLIER, (mConnectPower == MAX_CONNECT_POWER) ? MAX_CONNECT_POWER
+                : mConnectPower++) * 1000);
     }
 
     public void disconnect() throws IOException {
@@ -417,8 +405,7 @@ public class SocketIOClient {
                         mHeartbeat = Integer.parseInt(heartbeat) / 2 * 1000;
                     String transportsLine = parts[3];
                     String[] transports = transportsLine.split(",");
-                    HashSet<String> set = new HashSet<String>(
-                            Arrays.asList(transports));
+                    HashSet<String> set = new HashSet<String>(Arrays.asList(transports));
                     if (!set.contains("websocket"))
                         throw new Exception("websocket not supported");
 
