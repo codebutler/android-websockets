@@ -324,22 +324,38 @@ public class SocketIOClient {
 
                     @Override
                     public void onError(Exception error) {
-                        cleanup();
+
+                        // Removed call to cleanup because now we can
+                        // reconnect automatically so we need the mSendHandler
+                        // instance
                         mHandler.onError(error);
 
                         if (mReconnectOnError) {
+                            
+                            if (mClient != null)
+                                mClient.disconnect();
+                            mClient = null;
+                            mMessageIdCounter.set(0);
+                            mAcknowledges.clear();
+                            
                             mSendHandler.postDelayed(new Runnable() {
 
                                 @Override
                                 public void run() {
-                                    
-                                    //Doing this check here because the client can be forcibly connected before the Runnable runs
+
+                                    // Doing this check here because the client
+                                    // can be forcibly connected before the
+                                    // Runnable runs
                                     if (!mClient.isConnected()) {
                                         connect();
                                     }
 
                                 }
                             }, getDelayInMillis());
+                        }
+
+                        else {
+                            cleanup();
                         }
                     }
 
@@ -366,7 +382,9 @@ public class SocketIOClient {
     }
 
     private long getDelayInMillis() {
-        return (long) (Math.pow(CONNECT_MULTIPLIER, (mConnectPower == MAX_CONNECT_POWER) ? MAX_CONNECT_POWER : mConnectPower++) * 1000);
+        return (long) (Math.pow(CONNECT_MULTIPLIER,
+                (mConnectPower == MAX_CONNECT_POWER) ? MAX_CONNECT_POWER
+                        : mConnectPower++) * 1000);
     }
 
     public void disconnect() throws IOException {
