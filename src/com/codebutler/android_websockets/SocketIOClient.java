@@ -24,6 +24,12 @@ import android.util.Log;
 import android.util.SparseArray;
 
 public class SocketIOClient {
+
+    private static final String TAG = "SocketIOClient";
+
+    private static final int CONNECT_MULTIPLIER = 2;
+    private static final int MAX_CONNECT_POWER = 10;
+
     public static interface Handler {
         public void onConnect();
 
@@ -44,22 +50,27 @@ public class SocketIOClient {
         public void acknowledge(String[] args);
     }
 
-    private static final String TAG = "SocketIOClient";
-
-    String mURL;
-    Handler mHandler;
-    String mSession;
-    int mHeartbeat;
-    WebSocketClient mClient;
-    String mEndpoint;
+    private String mURL;
+    private Handler mHandler;
+    private String mSession;
+    private int mHeartbeat;
+    private WebSocketClient mClient;
+    private String mEndpoint;
     private AtomicInteger mMessageIdCounter;
     private SparseArray<Acknowledge> mAcknowledges;
+    private boolean mReconnectOnError;
+    private int mConnectPower;
 
     public SocketIOClient(URI uri, Handler handler) {
-        this(uri, handler, null);
+        this(uri, handler, null, false);
     }
 
-    public SocketIOClient(URI uri, Handler handler, String namespace) {
+    public SocketIOClient(URI uri, Handler handler, boolean reconnectOnError) {
+        this(uri, handler, null, reconnectOnError);
+    }
+
+    public SocketIOClient(URI uri, Handler handler, String namespace,
+            boolean reconnectOnError) {
         mEndpoint = namespace;
         mAcknowledges = new SparseArray<SocketIOClient.Acknowledge>();
         mMessageIdCounter = new AtomicInteger(0);
@@ -71,6 +82,8 @@ public class SocketIOClient {
         // http://test.com/
         mURL = uri.toString().replaceAll("/$", "") + "/" + mEndpoint + "/1/";
         mHandler = handler;
+        mConnectPower = 1;
+        mReconnectOnError = reconnectOnError;
     }
 
     private static String downloadUriAsString(final HttpUriRequest req) throws IOException {
@@ -122,7 +135,8 @@ public class SocketIOClient {
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
-                mClient.send(String.format("5:" + nextId + (acknowledge == null ? "" : "+") +"::%s", event.toString()));
+                mClient.send(String.format("5:" + nextId
+                        + (acknowledge == null ? "" : "+") + "::%s", event.toString()));
             }
         });
     }
@@ -141,7 +155,8 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("4:" + nextId + (acknowledge == null ? "" : "+") + "::%s", jsonMessage.toString()));
+                mClient.send(String.format("4:" + nextId
+                        + (acknowledge == null ? "" : "+") + "::%s", jsonMessage.toString()));
             }
         });
     }
@@ -160,7 +175,8 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("3:" + nextId + (acknowledge == null ? "" : "+") +"::%s", message));
+                mClient.send(String.format("3:" + nextId
+                        + (acknowledge == null ? "" : "+") + "::%s", message));
             }
         });
     }
@@ -297,8 +313,39 @@ public class SocketIOClient {
 
             @Override
             public void onError(Exception error) {
-                cleanup();
+
+                // Removed call to cleanup because now we can
+                // reconnect automatically so we need the mSendHandler
+                // instance
                 mHandler.onError(error);
+
+                if (mReconnectOnError) {
+
+                    if (mClient != null)
+                        mClient.disconnect();
+                    mClient = null;
+                    mMessageIdCounter.set(0);
+                    mAcknowledges.clear();
+
+                    mSendHandler.postDelayed(new Runnable() {
+
+                        @Override
+                        public void run() {
+
+                            // Doing this check here because the client
+                            // can be forcibly connected before the
+                            // Runnable runs
+                            if (!mClient.isConnected()) {
+                                connect();
+                            }
+
+                        }
+                    }, getDelayInMillis());
+                }
+
+                else {
+                    cleanup();
+                }
             }
 
             @Override
@@ -310,6 +357,7 @@ public class SocketIOClient {
 
             @Override
             public void onConnect() {
+                mConnectPower = 1;
                 mSendHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -320,6 +368,11 @@ public class SocketIOClient {
             }
         }, null);
         mClient.connect();
+    }
+
+    private long getDelayInMillis() {
+        return (long) (Math.pow(CONNECT_MULTIPLIER, (mConnectPower == MAX_CONNECT_POWER) ? MAX_CONNECT_POWER
+                : mConnectPower++) * 1000);
     }
 
     public void disconnect() throws IOException {
