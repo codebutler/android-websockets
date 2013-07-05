@@ -124,6 +124,12 @@ public class SocketIOClient {
     }
 
     public void emit(String name, JSONArray args, final Acknowledge acknowledge) throws JSONException {
+
+        emit(name, args, acknowledge, null);
+    }
+
+    public void emit(String name, JSONArray args, final Acknowledge acknowledge, final String endpoint) throws JSONException {
+
         final JSONObject event = new JSONObject();
         event.put("name", name);
         event.put("args", args);
@@ -135,7 +141,7 @@ public class SocketIOClient {
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
-                mClient.send(String.format("5:" + nextId + (acknowledge == null ? "" : "+") +":%s:%s", (mEndpoint == null ? "" : mEndpoint), event.toString()));
+                mClient.send(String.format("5:" + nextId + (acknowledge == null ? "" : "+") + ":%s:%s", (endpoint == null ? "" : endpoint), event.toString()));
             }
         });
     }
@@ -146,6 +152,11 @@ public class SocketIOClient {
 
     public void emit(final JSONObject jsonMessage, final Acknowledge acknowledge) throws JSONException {
 
+        emit(jsonMessage, acknowledge, null);
+    }
+
+    public void emit(final JSONObject jsonMessage, final Acknowledge acknowledge, final String endpoint) throws JSONException {
+
         final int nextId = getNextMessageId();
         if (acknowledge != null) {
             mAcknowledges.put(nextId, acknowledge);
@@ -154,7 +165,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("4:" + nextId + (acknowledge == null ? "" : "+") + ":%s:%s", (mEndpoint == null ? "" : mEndpoint), jsonMessage.toString()));
+                mClient.send(String.format("4:" + nextId + (acknowledge == null ? "" : "+") + ":%s:%s", (endpoint == null ? "" : endpoint), jsonMessage.toString()));
             }
         });
     }
@@ -165,6 +176,11 @@ public class SocketIOClient {
 
     public void emit(final String message, final Acknowledge acknowledge) {
 
+        emit(message, acknowledge, null);
+    }
+    
+    public void emit(final String message, final Acknowledge acknowledge, final String endpoint) {
+
         final int nextId = getNextMessageId();
         if (acknowledge != null) {
             mAcknowledges.put(nextId, acknowledge);
@@ -173,7 +189,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("3:" + nextId + (acknowledge == null ? "" : "+") +":%s:%s", (mEndpoint == null ? "" : mEndpoint), message));
+                mClient.send(String.format("3:" + nextId + (acknowledge == null ? "" : "+") + ":%s:%s", (endpoint == null ? "" : endpoint), message));
             }
         });
     }
