@@ -135,8 +135,7 @@ public class SocketIOClient {
         mSendHandler.post(new Runnable() {
             @Override
             public void run() {
-                mClient.send(String.format("5:" + nextId
-                        + (acknowledge == null ? "" : "+") + "::%s", event.toString()));
+                mClient.send(String.format("5:" + nextId + (acknowledge == null ? "" : "+") +":%s:%s", (mEndpoint == null ? "" : mEndpoint), event.toString()));
             }
         });
     }
@@ -155,8 +154,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("4:" + nextId
-                        + (acknowledge == null ? "" : "+") + "::%s", jsonMessage.toString()));
+                mClient.send(String.format("4:" + nextId + (acknowledge == null ? "" : "+") + ":%s:%s", (mEndpoint == null ? "" : mEndpoint), jsonMessage.toString()));
             }
         });
     }
@@ -175,8 +173,7 @@ public class SocketIOClient {
 
             @Override
             public void run() {
-                mClient.send(String.format("3:" + nextId
-                        + (acknowledge == null ? "" : "+") + "::%s", message));
+                mClient.send(String.format("3:" + nextId + (acknowledge == null ? "" : "+") +":%s:%s", (mEndpoint == null ? "" : mEndpoint), message));
             }
         });
     }
