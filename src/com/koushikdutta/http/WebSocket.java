@@ -1,20 +1,5 @@
-package com.codebutler.android_websockets;
+package com.koushikdutta.http;
 
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.text.TextUtils;
-import android.util.Base64;
-import android.util.Log;
-import org.apache.http.*;
-import org.apache.http.client.HttpResponseException;
-import org.apache.http.message.BasicLineParser;
-import org.apache.http.message.BasicNameValuePair;
-
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -25,18 +10,47 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-public class WebSocketClient {
-    private static final String TAG = "WebSocketClient";
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
 
-    private URI                      mURI;
-    private Listener                 mListener;
-    private Socket                   mSocket;
-    private Thread                   mThread;
-    private HandlerThread            mHandlerThread;
-    private Handler                  mHandler;
+import org.apache.http.Header;
+import org.apache.http.HttpException;
+import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpResponseException;
+import org.apache.http.message.BasicLineParser;
+import org.apache.http.message.BasicNameValuePair;
+
+import com.koushikdutta.http.HybiParser.HappyDataInputStream;
+
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
+
+public class WebSocket {
+    private static final String TAG = "WebSocket";
+
+    private URI mURI;
+    private Listener mListener;
+    private Socket mSocket;
+    private Thread mThread;
+    private HandlerThread mHandlerThread;
+    private Handler mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
-    private HybiParser               mParser;
-    private boolean                  mConnected;
+    private HybiParser mParser;
+    private boolean mConnected;
+
+    private DataCallback mDataCallback;
+    private StringCallback mStringCallback;
+    private ClosedCallback mClosedCallback;
+
+    private HappyDataInputStream stream;
 
     private final Object mSendLock = new Object();
 
@@ -46,12 +60,13 @@ public class WebSocketClient {
         sTrustManagers = tm;
     }
 
-    public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders) {
-        mURI          = uri;
-        mListener     = listener;
+    public WebSocket(URI uri, Listener listener,
+            List<BasicNameValuePair> extraHeaders) {
+        mURI = uri;
+        mListener = listener;
         mExtraHeaders = extraHeaders;
-        mConnected    = false;
-        mParser       = new HybiParser(this);
+        mConnected = false;
+        mParser = new HybiParser(this);
 
         mHandlerThread = new HandlerThread("websocket-thread");
         mHandlerThread.start();
@@ -68,20 +83,26 @@ public class WebSocketClient {
         }
 
         mThread = new Thread(new Runnable() {
+
             @Override
             public void run() {
                 try {
-                    int port = (mURI.getPort() != -1) ? mURI.getPort() : ((mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? 443 : 80);
+                    int port = (mURI.getPort() != -1) ? mURI.getPort()
+                            : ((mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? 443
+                                    : 80);
 
-                    String path = TextUtils.isEmpty(mURI.getPath()) ? "/" : mURI.getPath();
+                    String path = TextUtils.isEmpty(mURI.getPath()) ? "/"
+                            : mURI.getPath();
                     if (!TextUtils.isEmpty(mURI.getQuery())) {
                         path += "?" + mURI.getQuery();
                     }
 
-                    String originScheme = mURI.getScheme().equals("wss") ? "https" : "http";
+                    String originScheme = mURI.getScheme().equals("wss") ? "https"
+                            : "http";
                     URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
-                    SocketFactory factory = (mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? getSSLSocketFactory() : SocketFactory.getDefault();
+                    SocketFactory factory = (mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? getSSLSocketFactory()
+                            : SocketFactory.getDefault();
                     mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
@@ -100,7 +121,7 @@ public class WebSocketClient {
                     out.print("\r\n");
                     out.flush();
 
-                    HybiParser.HappyDataInputStream stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
+                    stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
 
                     // Read HTTP response status line.
                     StatusLine statusLine = parseStatusLine(readLine(stream));
@@ -119,22 +140,19 @@ public class WebSocketClient {
                         }
                     }
 
-                    mListener.onConnect();
+                    mListener.onConnect(WebSocket.this);
 
                     mConnected = true;
 
-                    // Now decode websocket frames.
-                    mParser.start(stream);
-
                 } catch (EOFException ex) {
                     Log.d(TAG, "WebSocket EOF!", ex);
-                    mListener.onDisconnect(0, "EOF");
+                    mListener.onError(ex);
                     mConnected = false;
 
                 } catch (SSLException ex) {
                     // Connection reset by peer
                     Log.d(TAG, "Websocket SSL error!", ex);
-                    mListener.onDisconnect(0, "SSL");
+                    mListener.onError(ex);
                     mConnected = false;
 
                 } catch (Exception ex) {
@@ -143,6 +161,16 @@ public class WebSocketClient {
             }
         });
         mThread.start();
+    }
+
+    public void startParsing() {
+        
+        // Now decode websocket frames.
+        try {
+            mParser.start(stream);
+        } catch (IOException e) {
+            mClosedCallback.onCompleted(e);
+        }
     }
 
     public void disconnect() {
@@ -173,7 +201,7 @@ public class WebSocketClient {
         sendFrame(mParser.frame(data));
     }
 
-    public boolean isConnected() {
+    public boolean isOpen() {
         return mConnected;
     }
 
@@ -233,17 +261,57 @@ public class WebSocketClient {
         });
     }
 
-    public interface Listener {
-        public void onConnect();
-        public void onMessage(String message);
-        public void onMessage(byte[] data);
-        public void onDisconnect(int code, String reason);
-        public void onError(Exception error);
+    public static interface Listener {
+        public void onConnect(WebSocket webSocket);
+
+        public void onError(Exception ex);
+
+    }
+
+    public static interface DataCallback {
+        public void onDataAvailable(byte[] data);
+    }
+
+    public static interface StringCallback {
+        public void onStringAvailable(String message);
+    }
+
+    public static interface ClosedCallback {
+        public void onCompleted(Exception ex);
+    }
+
+    public DataCallback getDataCallback() {
+        return mDataCallback;
+    }
+
+    public void setDataCallback(DataCallback dataCallback) {
+        this.mDataCallback = dataCallback;
+    }
+
+    public StringCallback getStringCallback() {
+        return mStringCallback;
+    }
+
+    public void setStringCallback(StringCallback stringCallback) {
+        this.mStringCallback = stringCallback;
+    }
+
+    public ClosedCallback getClosedCallback() {
+        return mClosedCallback;
+    }
+
+    public void setClosedCallback(ClosedCallback closedCallback) {
+        this.mClosedCallback = closedCallback;
     }
 
     private SSLSocketFactory getSSLSocketFactory() throws NoSuchAlgorithmException, KeyManagementException {
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(null, sTrustManagers, null);
         return context.getSocketFactory();
+    }
+
+    public static void create(URI uri, Listener listener) {
+        WebSocket webSocket = new WebSocket(uri, listener, null);
+        webSocket.connect();
     }
 }
