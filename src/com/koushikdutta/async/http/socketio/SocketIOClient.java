@@ -137,16 +137,6 @@ public class SocketIOClient extends EventEmitter {
         stringCallback = callback;
     }
     
-    EventCallback eventCallback;
-    
-    public EventCallback getEventCallback() {
-        return eventCallback;
-    }
-    
-    public void setEventCallback(EventCallback callback) {
-        eventCallback = callback;
-    }
-
     SocketIOConnection connection;
     String endpoint;
 
