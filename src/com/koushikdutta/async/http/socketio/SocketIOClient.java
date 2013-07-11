@@ -6,9 +6,9 @@ import org.json.JSONObject;
 import android.os.Handler;
 import android.text.TextUtils;
 
+import com.codebutler.android_websockets.WebSocketClient;
 import com.koushikdutta.http.AsyncHttpClient;
 import com.koushikdutta.http.AsyncHttpClient.SocketIORequest;
-import com.koushikdutta.http.WebSocketClient;
 
 public class SocketIOClient extends EventEmitter {
 

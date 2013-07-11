@@ -1,4 +1,4 @@
-package com.koushikdutta.http;
+package com.codebutler.android_websockets;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -25,7 +25,7 @@ import org.apache.http.client.HttpResponseException;
 import org.apache.http.message.BasicLineParser;
 import org.apache.http.message.BasicNameValuePair;
 
-import com.koushikdutta.http.HybiParser.HappyDataInputStream;
+import com.codebutler.android_websockets.HybiParser.HappyDataInputStream;
 
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -87,22 +87,17 @@ public class WebSocketClient {
             @Override
             public void run() {
                 try {
-                    int port = (mURI.getPort() != -1) ? mURI.getPort()
-                            : ((mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? 443
-                                    : 80);
+                    int port = (mURI.getPort() != -1) ? mURI.getPort() : ((mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? 443 : 80);
 
-                    String path = TextUtils.isEmpty(mURI.getPath()) ? "/"
-                            : mURI.getPath();
+                    String path = TextUtils.isEmpty(mURI.getPath()) ? "/" : mURI.getPath();
                     if (!TextUtils.isEmpty(mURI.getQuery())) {
                         path += "?" + mURI.getQuery();
                     }
 
-                    String originScheme = mURI.getScheme().equals("wss") ? "https"
-                            : "http";
+                    String originScheme = mURI.getScheme().equals("wss") ? "https" : "http";
                     URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
-                    SocketFactory factory = (mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? getSSLSocketFactory()
-                            : SocketFactory.getDefault();
+                    SocketFactory factory = (mURI.getScheme().equals("wss") || mURI.getScheme().equals("https")) ? getSSLSocketFactory() : SocketFactory.getDefault();
                     mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
@@ -164,7 +159,7 @@ public class WebSocketClient {
     }
 
     public void startParsing() {
-        
+
         // Now decode websocket frames.
         try {
             mParser.start(stream);

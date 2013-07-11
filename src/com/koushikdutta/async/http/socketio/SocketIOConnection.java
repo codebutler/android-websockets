@@ -6,11 +6,11 @@ import android.text.TextUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.codebutler.android_websockets.WebSocketClient;
+import com.codebutler.android_websockets.WebSocketClient.ClosedCallback;
+import com.codebutler.android_websockets.WebSocketClient.DataCallback;
 import com.koushikdutta.http.AsyncHttpClient;
 import com.koushikdutta.http.AsyncHttpClient.SocketIORequest;
-import com.koushikdutta.http.WebSocketClient;
-import com.koushikdutta.http.WebSocketClient.ClosedCallback;
-import com.koushikdutta.http.WebSocketClient.DataCallback;
 
 import java.util.ArrayList;
 import java.util.Arrays;
