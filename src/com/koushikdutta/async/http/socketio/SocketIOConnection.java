@@ -199,18 +199,36 @@ class SocketIOConnection {
     private void reportDisconnect(final Exception ex) {
         select(null, new SelectCallback() {
             @Override
-            public void onSelect(SocketIOClient client) {
+            public void onSelect(final SocketIOClient client) {
                 if (client.connected) {
                     client.disconnected = true;
-                    DisconnectCallback closed = client.getDisconnectCallback();
-                    if (closed != null)
-                        closed.onDisconnect(ex);
+                    final DisconnectCallback closed = client.getDisconnectCallback();
+                    if (closed != null) {
+                        mHandler.post(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                closed.onDisconnect(ex);
+
+                            }
+                        });
+
+                    }
                 } else {
                     // client has never connected, this is a initial connect
                     // failure
-                    ConnectCallback callback = client.connectCallback;
-                    if (callback != null)
-                        callback.onConnectCompleted(ex, client);
+                    final ConnectCallback callback = client.connectCallback;
+                    if (callback != null) {
+                        mHandler.post(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                callback.onConnectCompleted(ex, client);
+
+                            }
+                        });
+
+                    }
                 }
             }
         });
@@ -248,9 +266,18 @@ class SocketIOConnection {
         select(endpoint, new SelectCallback() {
             @Override
             public void onSelect(SocketIOClient client) {
-                JSONCallback callback = client.jsonCallback;
-                if (callback != null)
-                    callback.onJSON(jsonMessage, acknowledge);
+                final JSONCallback callback = client.jsonCallback;
+                if (callback != null) {
+                    mHandler.post(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            callback.onJSON(jsonMessage, acknowledge);
+
+                        }
+                    });
+                }
+
             }
         });
     }
@@ -259,9 +286,18 @@ class SocketIOConnection {
         select(endpoint, new SelectCallback() {
             @Override
             public void onSelect(SocketIOClient client) {
-                StringCallback callback = client.stringCallback;
-                if (callback != null)
-                    callback.onString(string, acknowledge);
+                final StringCallback callback = client.stringCallback;
+                if (callback != null) {
+                    mHandler.post(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            callback.onString(string, acknowledge);
+
+                        }
+                    });
+
+                }
             }
         });
     }
@@ -269,8 +305,16 @@ class SocketIOConnection {
     private void reportEvent(String endpoint, final String event, final JSONArray arguments, final Acknowledge acknowledge) {
         select(endpoint, new SelectCallback() {
             @Override
-            public void onSelect(SocketIOClient client) {
-                client.onEvent(event, arguments, acknowledge);
+            public void onSelect(final SocketIOClient client) {
+                mHandler.post(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        client.onEvent(event, arguments, acknowledge);
+
+                    }
+                });
+
             }
         });
     }
@@ -279,9 +323,19 @@ class SocketIOConnection {
         select(endpoint, new SelectCallback() {
             @Override
             public void onSelect(SocketIOClient client) {
-                ErrorCallback callback = client.errorCallback;
-                if (callback != null)
-                    callback.onError(error);
+                final ErrorCallback callback = client.errorCallback;
+                if (callback != null) {
+
+                    mHandler.post(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            callback.onError(error);
+
+                        }
+                    });
+
+                }
             }
         });
     }
@@ -390,7 +444,7 @@ class SocketIOConnection {
                 }
             }
         });
-        
+
         webSocketClient.startParsing();
     }
 }
