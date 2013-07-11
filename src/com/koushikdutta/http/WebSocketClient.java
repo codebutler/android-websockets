@@ -33,8 +33,8 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 
-public class WebSocket {
-    private static final String TAG = "WebSocket";
+public class WebSocketClient {
+    private static final String TAG = "WebSocketClient";
 
     private URI mURI;
     private Listener mListener;
@@ -60,7 +60,7 @@ public class WebSocket {
         sTrustManagers = tm;
     }
 
-    public WebSocket(URI uri, Listener listener,
+    public WebSocketClient(URI uri, Listener listener,
             List<BasicNameValuePair> extraHeaders) {
         mURI = uri;
         mListener = listener;
@@ -140,7 +140,7 @@ public class WebSocket {
                         }
                     }
 
-                    mListener.onConnect(WebSocket.this);
+                    mListener.onConnect(WebSocketClient.this);
 
                     mConnected = true;
 
@@ -262,7 +262,7 @@ public class WebSocket {
     }
 
     public static interface Listener {
-        public void onConnect(WebSocket webSocket);
+        public void onConnect(WebSocketClient webSocket);
 
         public void onError(Exception ex);
 
@@ -311,7 +311,7 @@ public class WebSocket {
     }
 
     public static void create(URI uri, Listener listener) {
-        WebSocket webSocket = new WebSocket(uri, listener, null);
+        WebSocketClient webSocket = new WebSocketClient(uri, listener, null);
         webSocket.connect();
     }
 }

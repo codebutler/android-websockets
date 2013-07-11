@@ -8,9 +8,9 @@ import org.json.JSONObject;
 
 import com.koushikdutta.http.AsyncHttpClient;
 import com.koushikdutta.http.AsyncHttpClient.SocketIORequest;
-import com.koushikdutta.http.WebSocket;
-import com.koushikdutta.http.WebSocket.ClosedCallback;
-import com.koushikdutta.http.WebSocket.DataCallback;
+import com.koushikdutta.http.WebSocketClient;
+import com.koushikdutta.http.WebSocketClient.ClosedCallback;
+import com.koushikdutta.http.WebSocketClient.DataCallback;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +26,7 @@ class SocketIOConnection {
     AsyncHttpClient httpClient;
     int heartbeat;
     ArrayList<SocketIOClient> clients = new ArrayList<SocketIOClient>();
-    WebSocket webSocket;
+    WebSocketClient webSocketClient;
     SocketIORequest request;
 
     public SocketIOConnection(Handler handler, AsyncHttpClient httpClient,
@@ -37,7 +37,7 @@ class SocketIOConnection {
     }
 
     public boolean isConnected() {
-        return webSocket != null && webSocket.isOpen();
+        return webSocketClient != null && webSocketClient.isOpen();
     }
 
     Hashtable<String, Acknowledge> acknowledges = new Hashtable<String, Acknowledge>();
@@ -50,12 +50,12 @@ class SocketIOConnection {
             ack = id + "+";
             acknowledges.put(id, acknowledge);
         }
-        webSocket.send(String.format("%d:%s:%s:%s", type, ack, client.endpoint, message));
+        webSocketClient.send(String.format("%d:%s:%s:%s", type, ack, client.endpoint, message));
     }
 
     public void connect(SocketIOClient client) {
         clients.add(client);
-        webSocket.send(String.format("1::%s", client.endpoint));
+        webSocketClient.send(String.format("1::%s", client.endpoint));
     }
 
     public void disconnect(SocketIOClient client) {
@@ -75,16 +75,16 @@ class SocketIOConnection {
         }
 
         if (needsEndpointDisconnect)
-            webSocket.send(String.format("0::%s", client.endpoint));
+            webSocketClient.send(String.format("0::%s", client.endpoint));
 
         // and see if we can disconnect the socket completely
         if (clients.size() > 0)
             return;
 
-        webSocket.setStringCallback(null);
-        webSocket.setClosedCallback(null);
-        webSocket.disconnect();
-        webSocket = null;
+        webSocketClient.setStringCallback(null);
+        webSocketClient.setClosedCallback(null);
+        webSocketClient.disconnect();
+        webSocketClient = null;
     }
 
     void reconnect() {
@@ -120,14 +120,14 @@ class SocketIOConnection {
 
                     httpClient.websocket(sessionUrl, null, new AsyncHttpClient.WebSocketConnectCallback() {
                         @Override
-                        public void onCompleted(Exception ex, WebSocket webSocket) {
+                        public void onCompleted(Exception ex, WebSocketClient webSocket) {
                             if (ex != null) {
                                 reportDisconnect(ex);
                                 return;
                             }
 
                             reconnectDelay = 1000L;
-                            SocketIOConnection.this.webSocket = webSocket;
+                            SocketIOConnection.this.webSocketClient = webSocket;
                             attach();
                         }
                     });
@@ -141,14 +141,14 @@ class SocketIOConnection {
     }
 
     void setupHeartbeat() {
-        final WebSocket ws = webSocket;
+        final WebSocketClient ws = webSocketClient;
         Runnable heartbeatRunner = new Runnable() {
             @Override
             public void run() {
-                if (heartbeat <= 0 || ws != webSocket || ws == null
+                if (heartbeat <= 0 || ws != webSocketClient || ws == null
                         || !ws.isOpen())
                     return;
-                webSocket.send("2:::");
+                webSocketClient.send("2:::");
 
                 mHandler.postDelayed(this, heartbeat);
             }
@@ -169,7 +169,7 @@ class SocketIOConnection {
     }
 
     private void delayReconnect() {
-        if (webSocket != null || clients.size() == 0)
+        if (webSocketClient != null || clients.size() == 0)
             return;
 
         // see if any client has disconnected,
@@ -296,7 +296,7 @@ class SocketIOConnection {
                 String data = "";
                 if (arguments != null)
                     data += "+" + arguments.toString();
-                webSocket.send(String.format("6:::%s%s", messageId, data));
+                webSocketClient.send(String.format("6:::%s%s", messageId, data));
             }
         };
     }
@@ -304,23 +304,23 @@ class SocketIOConnection {
     private void attach() {
         setupHeartbeat();
 
-        webSocket.setDataCallback(new DataCallback() {
+        webSocketClient.setDataCallback(new DataCallback() {
 
             @Override
             public void onDataAvailable(byte[] data) {
                 // Do nothing
             }
         });
-        webSocket.setClosedCallback(new ClosedCallback() {
+        webSocketClient.setClosedCallback(new ClosedCallback() {
 
             @Override
             public void onCompleted(final Exception ex) {
-                webSocket = null;
+                webSocketClient = null;
                 reportDisconnect(ex);
             }
         });
 
-        webSocket.setStringCallback(new WebSocket.StringCallback() {
+        webSocketClient.setStringCallback(new WebSocketClient.StringCallback() {
             @Override
             public void onStringAvailable(String message) {
                 try {
@@ -330,7 +330,7 @@ class SocketIOConnection {
                     switch (code) {
                     case 0:
                         // disconnect
-                        webSocket.disconnect();
+                        webSocketClient.disconnect();
                         reportDisconnect(null);
                         break;
                     case 1:
@@ -339,7 +339,7 @@ class SocketIOConnection {
                         break;
                     case 2:
                         // heartbeat
-                        webSocket.send("2::");
+                        webSocketClient.send("2::");
                         break;
                     case 3: {
                         // message
@@ -383,14 +383,14 @@ class SocketIOConnection {
                         throw new Exception("unknown code");
                     }
                 } catch (Exception ex) {
-                    webSocket.setClosedCallback(null);
-                    webSocket.disconnect();
-                    webSocket = null;
+                    webSocketClient.setClosedCallback(null);
+                    webSocketClient.disconnect();
+                    webSocketClient = null;
                     reportDisconnect(ex);
                 }
             }
         });
         
-        webSocket.startParsing();
+        webSocketClient.startParsing();
     }
 }

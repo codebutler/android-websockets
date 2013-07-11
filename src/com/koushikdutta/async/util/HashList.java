@@ -7,6 +7,9 @@ import java.util.Hashtable;
  * Created by koush on 5/27/13.
  */
 public class HashList<T> extends Hashtable<String, ArrayList<T>> {
+   
+    private static final long serialVersionUID = 1L;
+
     public HashList() {
     }
 

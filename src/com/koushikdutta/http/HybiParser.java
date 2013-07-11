@@ -43,7 +43,7 @@ import android.util.Log;
 public class HybiParser {
     private static final String TAG = "HybiParser";
 
-    private WebSocket mWebSocket;
+    private WebSocketClient mWebSocket;
 
     private boolean mMasking = true;
 
@@ -95,7 +95,7 @@ public class HybiParser {
         OP_CONTINUATION, OP_TEXT, OP_BINARY
     );
 
-    public HybiParser(WebSocket client) {
+    public HybiParser(WebSocketClient client) {
         mWebSocket = client;
     }
 
@@ -375,6 +375,9 @@ public class HybiParser {
     }
 
     public static class ProtocolError extends IOException {
+        
+        private static final long serialVersionUID = 1L;
+
         public ProtocolError(String detailMessage) {
             super(detailMessage);
         }

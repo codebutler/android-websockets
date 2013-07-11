@@ -13,6 +13,10 @@ import android.net.Uri;
 import android.net.http.AndroidHttpClient;
 import android.os.AsyncTask;
 
+/**
+ * 
+ * Created by Vinay S Shenoy on 07/09/2013
+ */
 public class AsyncHttpClient {
 
     public AsyncHttpClient() {
@@ -50,7 +54,7 @@ public class AsyncHttpClient {
     }
 
     public static interface WebSocketConnectCallback {
-        public void onCompleted(Exception ex, WebSocket webSocket);
+        public void onCompleted(Exception ex, WebSocketClient webSocket);
     }
 
     public void executeString(final SocketIORequest socketIORequest, final StringCallback stringCallback) {
@@ -103,10 +107,10 @@ public class AsyncHttpClient {
 
     public void websocket(final String uri, final String protocol, final WebSocketConnectCallback callback) {
 
-        WebSocket.create(URI.create(uri), new WebSocket.Listener() {
+        WebSocketClient.create(URI.create(uri), new WebSocketClient.Listener() {
 
             @Override
-            public void onConnect(WebSocket websocket) {
+            public void onConnect(WebSocketClient websocket) {
                 if (callback != null) {
                     callback.onCompleted(null, websocket);
                 }
