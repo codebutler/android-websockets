@@ -1,7 +1,5 @@
 # WebSocket and Socket.IO client for Android
 
-A very simple bare-minimum WebSocket and Socket.IO client for Android.
-
 ## Credits
 
 The hybi parser is based on code from the [faye project](https://github.com/faye/faye-websocket-node). Faye is Copyright (c) 2009-2012 James Coglan. Many thanks for the great open-source library!
@@ -11,6 +9,8 @@ The hybi parser was ported from JavaScript to Java by [Eric Butler](https://twit
 The WebSocket client was written by [Eric Butler](https://twitter.com/codebutler) <eric@codebutler.com>.
 
 The Socket.IO client was written by [Koushik Dutta](https://twitter.com/koush).
+
+The Socket.IO client component was ported from Koushik Dutta's AndroidAsync(https://github.com/koush/AndroidAsync) by [Vinay S Shenoy](https://twitter.com/vinaysshenoy)
 
 ## WebSocket Usage
 
@@ -58,75 +58,86 @@ client.disconnect();
 ## Socket.IO Usage
 
 ```java
-SocketIOClient client = new SocketIOClient(URI.create("wss://example.com"), new SocketIOClient.Handler() {
-    @Override
-    public void onConnect() {
-        Log.d(TAG, "Connected!");
-    }
+SocketIOClient.connect("http://localhost:80", new ConnectCallback() {
 
     @Override
-    public void on(String event, JSONArray arguments) {
-        Log.d(TAG, String.format("Got event %s: %s", event, arguments.toString()));
+    public void onConnectCompleted(Exception ex, SocketIOClient client) {
+        
+        if (ex != null) {
+            return;
+        }
+
+        //Save the returned SocketIOClient instance into a variable so you can disconnect it later
+        client.setDisconnectCallback(MainActivity.this);
+        client.setErrorCallback(MainActivity.this);
+        client.setJSONCallback(MainActivity.this);
+        client.setStringCallback(MainActivity.this);
+        client.addListener("news", MainActivity.this);
+
+        client.of("/chat", new ConnectCallback() {
+        
+            @Override
+            public void onConnectCompleted(Exception ex, SocketIOClient client) {
+                
+                if (ex != null) {
+                    ex.printStackTrace();
+                    return;
+                }
+
+                //This client instance will be using the same websocket as the original client, 
+                //but will point to the indicated endpoint
+                client.setDisconnectCallback(MainActivity.this);
+                client.setErrorCallback(MainActivity.this);
+                client.setJSONCallback(MainActivity.this);
+                client.setStringCallback(MainActivity.this);
+                client.addListener("a message", MainActivity.this);
+
+            }
+        });
+
     }
-    
-    @Override
-    public void onJSON(JSONObject json) {
-    	try {
-    		Log.d(TAG, String.format("Got JSON Object: %s", json.toString()));
-    	} catch(JSONException e) {
-    	}
+}, new Handler());
+
+        
+@Override
+public void onEvent(String event, JSONArray argument, Acknowledge acknowledge) {
+    try {
+        Log.d("MainActivity", "Event:" + event + "Arguments:"
+                + argument.toString(2));
+    } catch (JSONException e) {
+        e.printStackTrace();
     }
 
-    @Override
-    public void onMessage(String message) {
-    	Log.d(TAG, String.format("Got message: %s", message));
+}
+
+@Override
+public void onString(String string, Acknowledge acknowledge) {
+    Log.d("MainActivity", string);
+
+}
+
+@Override
+public void onJSON(JSONObject json, Acknowledge acknowledge) {
+    try {
+        Log.d("MainActivity", "json:" + json.toString(2));
+    } catch (JSONException e) {
+        e.printStackTrace();
     }
 
-    @Override
-    public void onDisconnect(int code, String reason) {
-        Log.d(TAG, String.format("Disconnected! Code: %d Reason: %s", code, reason));
-    }
+}
 
-    @Override
-    public void onError(Exception error) {
-        Log.e(TAG, "Error!", error);
-    }
-    
-    @Override
-    public void onConnectToEndpoint(String endpoint) {
-    	Log.d(TAG, "Connected to:" + endpoint);
+@Override
+public void onError(String error) {
+    Log.d("MainActivity", error);
 
-    }
-});
+}
 
-client.connect();
+@Override
+public void onDisconnect(Exception e) {
+    Log.d(mComponentTag, "Disconnected:" + e.getMessage());
 
-// Later… 
-client.emit("Message"); //Message
-JSONArray arguments = new JSONArray();
-arguments.put("first argument");
-JSONObject second = new JSONObject();
-second.put("dictionary", true);
-client.emit(second); //JSON Message
-arguments.put(second);
-client.emit("hello", arguments); //Event
-client.disconnect();
+}
 
-/*How to use Acknowledges
-*Call any of the emit() methods 
-*with the Acknowledge parameter.
-*
-*Each message must have a new
-*Acknowledge object as they
-*are matched against the Message Id.
-*/
-client.emit("Message", new Acknowledge {
-
-	@Override
-	public void acknowledge(String[] args) {
-		//Perform your acknowledge handling here
-	}
-});
 ```
 
 
