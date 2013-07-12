@@ -72,6 +72,8 @@ SocketIOClient.connect("http://localhost:80", new ConnectCallback() {
         client.setErrorCallback(MainActivity.this);
         client.setJSONCallback(MainActivity.this);
         client.setStringCallback(MainActivity.this);
+        
+        //You need to explicitly specify which events you are interested in receiving
         client.addListener("news", MainActivity.this);
 
         client.of("/chat", new ConnectCallback() {
