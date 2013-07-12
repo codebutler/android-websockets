@@ -30,20 +30,16 @@
 
 package com.codebutler.android_websockets;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import android.util.Log;
+
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
-
-import android.util.Log;
 
 public class HybiParser {
     private static final String TAG = "HybiParser";
 
-    private WebSocketClient mWebSocket;
+    private WebSocketClient mClient;
 
     private boolean mMasking = true;
 
@@ -96,7 +92,7 @@ public class HybiParser {
     );
 
     public HybiParser(WebSocketClient client) {
-        mWebSocket = client;
+        mClient = client;
     }
 
     private static byte[] mask(byte[] payload, byte[] mask, int offset) {
@@ -132,7 +128,7 @@ public class HybiParser {
                     break;
             }
         }
-        mWebSocket.getClosedCallback().onCompleted(new IOException("EOF"));
+        mClient.getListener().onDisconnect(0, "EOF");
     }
 
     private void parseOpcode(byte data) throws ProtocolError {
@@ -245,12 +241,12 @@ public class HybiParser {
     }
 
     public void ping(String message) {
-        mWebSocket.send(frame(message, OP_PING, -1));
+        mClient.send(frame(message, OP_PING, -1));
     }
 
     public void close(int code, String reason) {
         if (mClosed) return;
-        mWebSocket.send(frame(reason, OP_CLOSE, code));
+        mClient.send(frame(reason, OP_CLOSE, code));
         mClosed = true;
     }
 
@@ -266,9 +262,9 @@ public class HybiParser {
             if (mFinal) {
                 byte[] message = mBuffer.toByteArray();
                 if (mMode == MODE_TEXT) {
-                    mWebSocket.getStringCallback().onStringAvailable(encode(message));
+                    mClient.getListener().onMessage(encode(message));
                 } else {
-                    mWebSocket.getDataCallback().onDataAvailable(message);
+                    mClient.getListener().onMessage(message);
                 }
                 reset();
             }
@@ -276,7 +272,7 @@ public class HybiParser {
         } else if (opcode == OP_TEXT) {
             if (mFinal) {
                 String messageText = encode(payload);
-                mWebSocket.getStringCallback().onStringAvailable(messageText);
+                mClient.getListener().onMessage(messageText);
             } else {
                 mMode = MODE_TEXT;
                 mBuffer.write(payload);
@@ -284,7 +280,7 @@ public class HybiParser {
 
         } else if (opcode == OP_BINARY) {
             if (mFinal) {
-                mWebSocket.getDataCallback().onDataAvailable(payload);
+                mClient.getListener().onMessage(payload);
             } else {
                 mMode = MODE_BINARY;
                 mBuffer.write(payload);
@@ -294,12 +290,12 @@ public class HybiParser {
             int    code   = (payload.length >= 2) ? 256 * payload[0] + payload[1] : 0;
             String reason = (payload.length >  2) ? encode(slice(payload, 2))     : null;
             Log.d(TAG, "Got close op! " + code + " " + reason);
-            mWebSocket.getClosedCallback().onCompleted(new IOException("Got close op! " + code + " " + reason));
+            mClient.getListener().onDisconnect(code, reason);
 
         } else if (opcode == OP_PING) {
             if (payload.length > 125) { throw new ProtocolError("Ping payload too large"); }
             Log.d(TAG, "Sending pong!!");
-            mWebSocket.sendFrame(frame(payload, OP_PONG, -1));
+            mClient.sendFrame(frame(payload, OP_PONG, -1));
 
         } else if (opcode == OP_PONG) {
             String message = encode(payload);
@@ -375,9 +371,6 @@ public class HybiParser {
     }
 
     public static class ProtocolError extends IOException {
-        
-        private static final long serialVersionUID = 1L;
-
         public ProtocolError(String detailMessage) {
             super(detailMessage);
         }

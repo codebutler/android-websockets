@@ -1,21 +1,22 @@
 package com.koushikdutta.async.http.socketio;
 
-import android.os.Handler;
-import android.text.TextUtils;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import com.codebutler.android_websockets.WebSocketClient;
-import com.codebutler.android_websockets.WebSocketClient.ClosedCallback;
-import com.codebutler.android_websockets.WebSocketClient.DataCallback;
-import com.koushikdutta.http.AsyncHttpClient;
-import com.koushikdutta.http.AsyncHttpClient.SocketIORequest;
-
+import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Hashtable;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import android.os.Handler;
+import android.text.TextUtils;
+
+import com.codebutler.android_websockets.WebSocketClient;
+import com.codebutler.android_websockets.WebSocketClient.Listener;
+import com.koushikdutta.http.AsyncHttpClient;
+import com.koushikdutta.http.AsyncHttpClient.SocketIORequest;
 
 /**
  * Created by koush on 7/1/13.
@@ -37,7 +38,7 @@ class SocketIOConnection {
     }
 
     public boolean isConnected() {
-        return webSocketClient != null && webSocketClient.isOpen();
+        return webSocketClient != null && webSocketClient.isConnected();
     }
 
     Hashtable<String, Acknowledge> acknowledges = new Hashtable<String, Acknowledge>();
@@ -81,8 +82,6 @@ class SocketIOConnection {
         if (clients.size() > 0)
             return;
 
-        webSocketClient.setStringCallback(null);
-        webSocketClient.setClosedCallback(null);
         webSocketClient.disconnect();
         webSocketClient = null;
     }
@@ -117,20 +116,104 @@ class SocketIOConnection {
 
                     final String sessionUrl = request.getUri().toString()
                             + "websocket/" + session + "/";
-
-                    httpClient.websocket(sessionUrl, null, new AsyncHttpClient.WebSocketConnectCallback() {
+                    
+                    SocketIOConnection.this.webSocketClient =  new WebSocketClient(URI.create(sessionUrl), new Listener() {
+                        
                         @Override
-                        public void onCompleted(Exception ex, WebSocketClient webSocket) {
-                            if (ex != null) {
-                                reportDisconnect(ex);
-                                return;
-                            }
-
-                            reconnectDelay = 1000L;
-                            SocketIOConnection.this.webSocketClient = webSocket;
-                            attach();
+                        public void onMessage(byte[] data) {
+                            //Do nothing
+                            
                         }
-                    });
+                        
+                        @Override
+                        public void onMessage(String message) {
+                            try {
+                                // Log.d(TAG, "Message: " + message);
+                                String[] parts = message.split(":", 4);
+                                int code = Integer.parseInt(parts[0]);
+                                switch (code) {
+                                case 0:
+                                    // disconnect
+                                    webSocketClient.disconnect();
+                                    reportDisconnect(null);
+                                    break;
+                                case 1:
+                                    // connect
+                                    reportConnect(parts[2]);
+                                    break;
+                                case 2:
+                                    // heartbeat
+                                    webSocketClient.send("2::");
+                                    break;
+                                case 3: {
+                                    // message
+                                    reportString(parts[2], parts[3], acknowledge(parts[1]));
+                                    break;
+                                }
+                                case 4: {
+                                    // json message
+                                    final String dataString = parts[3];
+                                    final JSONObject jsonMessage = new JSONObject(dataString);
+                                    reportJson(parts[2], jsonMessage, acknowledge(parts[1]));
+                                    break;
+                                }
+                                case 5: {
+                                    final String dataString = parts[3];
+                                    final JSONObject data = new JSONObject(dataString);
+                                    final String event = data.getString("name");
+                                    final JSONArray args = data.optJSONArray("args");
+                                    reportEvent(parts[2], event, args, acknowledge(parts[1]));
+                                    break;
+                                }
+                                case 6:
+                                    // ACK
+                                    final String[] ackParts = parts[3].split("\\+", 2);
+                                    Acknowledge ack = acknowledges.remove(ackParts[0]);
+                                    if (ack == null)
+                                        return;
+                                    JSONArray arguments = null;
+                                    if (ackParts.length == 2)
+                                        arguments = new JSONArray(ackParts[1]);
+                                    ack.acknowledge(arguments);
+                                    break;
+                                case 7:
+                                    // error
+                                    reportError(parts[2], parts[3]);
+                                    break;
+                                case 8:
+                                    // noop
+                                    break;
+                                default:
+                                    throw new Exception("unknown code");
+                                }
+                            } catch (Exception ex) {
+                                webSocketClient.disconnect();
+                                webSocketClient = null;
+                                reportDisconnect(ex);
+                            }
+                        
+                            
+                        }
+                        
+                        @Override
+                        public void onError(Exception error) {
+                            reportDisconnect(error);
+                        }
+                        
+                        @Override
+                        public void onDisconnect(int code, String reason) {
+                            
+                            reportDisconnect(new IOException(String.format("Disconnected code %d for reason %s", code, reason)));
+                        }
+                        
+                        @Override
+                        public void onConnect() {
+                            reconnectDelay = 1000L;
+                            setupHeartbeat();
+                            
+                        }
+                    }, null);
+                    SocketIOConnection.this.webSocketClient.connect();
 
                 } catch (Exception ex) {
                     reportDisconnect(ex);
@@ -146,7 +229,7 @@ class SocketIOConnection {
             @Override
             public void run() {
                 if (heartbeat <= 0 || ws != webSocketClient || ws == null
-                        || !ws.isOpen())
+                        || !ws.isConnected())
                     return;
                 webSocketClient.send("2:::");
 
@@ -355,96 +438,6 @@ class SocketIOConnection {
         };
     }
 
-    private void attach() {
-        setupHeartbeat();
+    
 
-        webSocketClient.setDataCallback(new DataCallback() {
-
-            @Override
-            public void onDataAvailable(byte[] data) {
-                // Do nothing
-            }
-        });
-        webSocketClient.setClosedCallback(new ClosedCallback() {
-
-            @Override
-            public void onCompleted(final Exception ex) {
-                webSocketClient = null;
-                reportDisconnect(ex);
-            }
-        });
-
-        webSocketClient.setStringCallback(new WebSocketClient.StringCallback() {
-            @Override
-            public void onStringAvailable(String message) {
-                try {
-                    // Log.d(TAG, "Message: " + message);
-                    String[] parts = message.split(":", 4);
-                    int code = Integer.parseInt(parts[0]);
-                    switch (code) {
-                    case 0:
-                        // disconnect
-                        webSocketClient.disconnect();
-                        reportDisconnect(null);
-                        break;
-                    case 1:
-                        // connect
-                        reportConnect(parts[2]);
-                        break;
-                    case 2:
-                        // heartbeat
-                        webSocketClient.send("2::");
-                        break;
-                    case 3: {
-                        // message
-                        reportString(parts[2], parts[3], acknowledge(parts[1]));
-                        break;
-                    }
-                    case 4: {
-                        // json message
-                        final String dataString = parts[3];
-                        final JSONObject jsonMessage = new JSONObject(dataString);
-                        reportJson(parts[2], jsonMessage, acknowledge(parts[1]));
-                        break;
-                    }
-                    case 5: {
-                        final String dataString = parts[3];
-                        final JSONObject data = new JSONObject(dataString);
-                        final String event = data.getString("name");
-                        final JSONArray args = data.optJSONArray("args");
-                        reportEvent(parts[2], event, args, acknowledge(parts[1]));
-                        break;
-                    }
-                    case 6:
-                        // ACK
-                        final String[] ackParts = parts[3].split("\\+", 2);
-                        Acknowledge ack = acknowledges.remove(ackParts[0]);
-                        if (ack == null)
-                            return;
-                        JSONArray arguments = null;
-                        if (ackParts.length == 2)
-                            arguments = new JSONArray(ackParts[1]);
-                        ack.acknowledge(arguments);
-                        break;
-                    case 7:
-                        // error
-                        reportError(parts[2], parts[3]);
-                        break;
-                    case 8:
-                        // noop
-                        break;
-                    default:
-                        throw new Exception("unknown code");
-                    }
-                } catch (Exception ex) {
-                    webSocketClient.setClosedCallback(null);
-                    webSocketClient.disconnect();
-                    webSocketClient = null;
-                    reportDisconnect(ex);
-                }
-            }
-        });
-
-        webSocketClient.startParsing();
-    }
 }

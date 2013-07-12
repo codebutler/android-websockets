@@ -1,5 +1,20 @@
 package com.codebutler.android_websockets;
 
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
+import org.apache.http.*;
+import org.apache.http.client.HttpResponseException;
+import org.apache.http.message.BasicLineParser;
+import org.apache.http.message.BasicNameValuePair;
+
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -10,47 +25,18 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-
-import org.apache.http.Header;
-import org.apache.http.HttpException;
-import org.apache.http.HttpStatus;
-import org.apache.http.NameValuePair;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpResponseException;
-import org.apache.http.message.BasicLineParser;
-import org.apache.http.message.BasicNameValuePair;
-
-import com.codebutler.android_websockets.HybiParser.HappyDataInputStream;
-
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.text.TextUtils;
-import android.util.Base64;
-import android.util.Log;
-
 public class WebSocketClient {
     private static final String TAG = "WebSocketClient";
 
-    private URI mURI;
-    private Listener mListener;
-    private Socket mSocket;
-    private Thread mThread;
-    private HandlerThread mHandlerThread;
-    private Handler mHandler;
+    private URI                      mURI;
+    private Listener                 mListener;
+    private Socket                   mSocket;
+    private Thread                   mThread;
+    private HandlerThread            mHandlerThread;
+    private Handler                  mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
-    private HybiParser mParser;
-    private boolean mConnected;
-
-    private DataCallback mDataCallback;
-    private StringCallback mStringCallback;
-    private ClosedCallback mClosedCallback;
-
-    private HappyDataInputStream stream;
+    private HybiParser               mParser;
+    private boolean                  mConnected;
 
     private final Object mSendLock = new Object();
 
@@ -60,13 +46,12 @@ public class WebSocketClient {
         sTrustManagers = tm;
     }
 
-    public WebSocketClient(URI uri, Listener listener,
-            List<BasicNameValuePair> extraHeaders) {
-        mURI = uri;
-        mListener = listener;
+    public WebSocketClient(URI uri, Listener listener, List<BasicNameValuePair> extraHeaders) {
+        mURI          = uri;
+        mListener     = listener;
         mExtraHeaders = extraHeaders;
-        mConnected = false;
-        mParser = new HybiParser(this);
+        mConnected    = false;
+        mParser       = new HybiParser(this);
 
         mHandlerThread = new HandlerThread("websocket-thread");
         mHandlerThread.start();
@@ -83,7 +68,6 @@ public class WebSocketClient {
         }
 
         mThread = new Thread(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -116,7 +100,7 @@ public class WebSocketClient {
                     out.print("\r\n");
                     out.flush();
 
-                    stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
+                    HybiParser.HappyDataInputStream stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
 
                     // Read HTTP response status line.
                     StatusLine statusLine = parseStatusLine(readLine(stream));
@@ -135,19 +119,22 @@ public class WebSocketClient {
                         }
                     }
 
-                    mListener.onConnect(WebSocketClient.this);
+                    mListener.onConnect();
 
                     mConnected = true;
 
+                    // Now decode websocket frames.
+                    mParser.start(stream);
+
                 } catch (EOFException ex) {
                     Log.d(TAG, "WebSocket EOF!", ex);
-                    mListener.onError(ex);
+                    mListener.onDisconnect(0, "EOF");
                     mConnected = false;
 
                 } catch (SSLException ex) {
                     // Connection reset by peer
                     Log.d(TAG, "Websocket SSL error!", ex);
-                    mListener.onError(ex);
+                    mListener.onDisconnect(0, "SSL");
                     mConnected = false;
 
                 } catch (Exception ex) {
@@ -156,16 +143,6 @@ public class WebSocketClient {
             }
         });
         mThread.start();
-    }
-
-    public void startParsing() {
-
-        // Now decode websocket frames.
-        try {
-            mParser.start(stream);
-        } catch (IOException e) {
-            mClosedCallback.onCompleted(e);
-        }
     }
 
     public void disconnect() {
@@ -196,7 +173,7 @@ public class WebSocketClient {
         sendFrame(mParser.frame(data));
     }
 
-    public boolean isOpen() {
+    public boolean isConnected() {
         return mConnected;
     }
 
@@ -256,57 +233,17 @@ public class WebSocketClient {
         });
     }
 
-    public static interface Listener {
-        public void onConnect(WebSocketClient webSocket);
-
-        public void onError(Exception ex);
-
-    }
-
-    public static interface DataCallback {
-        public void onDataAvailable(byte[] data);
-    }
-
-    public static interface StringCallback {
-        public void onStringAvailable(String message);
-    }
-
-    public static interface ClosedCallback {
-        public void onCompleted(Exception ex);
-    }
-
-    public DataCallback getDataCallback() {
-        return mDataCallback;
-    }
-
-    public void setDataCallback(DataCallback dataCallback) {
-        this.mDataCallback = dataCallback;
-    }
-
-    public StringCallback getStringCallback() {
-        return mStringCallback;
-    }
-
-    public void setStringCallback(StringCallback stringCallback) {
-        this.mStringCallback = stringCallback;
-    }
-
-    public ClosedCallback getClosedCallback() {
-        return mClosedCallback;
-    }
-
-    public void setClosedCallback(ClosedCallback closedCallback) {
-        this.mClosedCallback = closedCallback;
+    public interface Listener {
+        public void onConnect();
+        public void onMessage(String message);
+        public void onMessage(byte[] data);
+        public void onDisconnect(int code, String reason);
+        public void onError(Exception error);
     }
 
     private SSLSocketFactory getSSLSocketFactory() throws NoSuchAlgorithmException, KeyManagementException {
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(null, sTrustManagers, null);
         return context.getSocketFactory();
-    }
-
-    public static void create(URI uri, Listener listener) {
-        WebSocketClient webSocket = new WebSocketClient(uri, listener, null);
-        webSocket.connect();
     }
 }

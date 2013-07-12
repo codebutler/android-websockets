@@ -4,16 +4,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 
-import com.codebutler.android_websockets.WebSocketClient;
-
 import android.net.Uri;
 import android.net.http.AndroidHttpClient;
 import android.os.AsyncTask;
+
+import com.codebutler.android_websockets.WebSocketClient;
 
 /**
  * 
@@ -105,28 +104,6 @@ public class AsyncHttpClient {
 
     private String readToEnd(InputStream input) throws IOException {
         return new String(readToEndAsArray(input));
-    }
-
-    public void websocket(final String uri, final String protocol, final WebSocketConnectCallback callback) {
-
-        WebSocketClient.create(URI.create(uri), new WebSocketClient.Listener() {
-
-            @Override
-            public void onConnect(WebSocketClient websocket) {
-                if (callback != null) {
-                    callback.onCompleted(null, websocket);
-                }
-
-            }
-
-            @Override
-            public void onError(Exception ex) {
-                if (callback != null) {
-                    callback.onCompleted(ex, null);
-                }
-
-            }
-        });
     }
 
 }
