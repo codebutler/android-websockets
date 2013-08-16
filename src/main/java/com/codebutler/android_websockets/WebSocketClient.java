@@ -37,6 +37,8 @@ public class WebSocketClient {
     private Handler                  mHandler;
     private List<BasicNameValuePair> mExtraHeaders;
     private HybiParser               mParser;
+    private String                   mProxyHost;
+    private int                      mProxyPort;
 
     private final Object mSendLock = new Object();
 
@@ -83,9 +85,34 @@ public class WebSocketClient {
                     URI origin = new URI(originScheme, "//" + mURI.getHost(), null);
 
                     SocketFactory factory = mURI.getScheme().equals("wss") ? getSSLSocketFactory() : SocketFactory.getDefault();
-                    mSocket = factory.createSocket(mURI.getHost(), port);
+                    if(mProxyHost != null && mProxyHost.length() > 0)
+                        mSocket = SocketFactory.getDefault().createSocket(mProxyHost, mProxyPort);
+                    else
+                        mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
+                    if(mProxyHost != null && mProxyHost.length() > 0) {
+                        out.print("CONNECT " + mURI.getHost() + ":" + port + " HTTP/1.1\r\n");
+                        out.print("\r\n");
+                        out.flush();
+                        HybiParser.HappyDataInputStream stream = new HybiParser.HappyDataInputStream(mSocket.getInputStream());
+
+                        // Read HTTP response status line.
+                        StatusLine statusLine = parseStatusLine(readLine(stream));
+                        if (statusLine == null) {
+                            throw new HttpException("Received no reply from server.");
+                        } else if (statusLine.getStatusCode() != HttpStatus.SC_OK) {
+                            throw new HttpResponseException(statusLine.getStatusCode(), statusLine.getReasonPhrase());
+                        }
+
+                        // Read HTTP response headers.
+                        String line;
+                        while (!TextUtils.isEmpty(line = readLine(stream)));
+                        if(mURI.getScheme().equals("wss")) {
+                            mSocket = getSSLSocketFactory().createSocket(mSocket, mURI.getHost(), port, false);
+                            out = new PrintWriter(mSocket.getOutputStream());
+                        }
+                    }
                     out.print("GET " + path + " HTTP/1.1\r\n");
                     out.print("Upgrade: websocket\r\n");
                     out.print("Connection: Upgrade\r\n");
@@ -247,6 +274,11 @@ public class WebSocketClient {
                 }
             }
         });
+    }
+
+    public void setProxy(String host, int port) {
+        mProxyHost = host;
+        mProxyPort = port;
     }
 
     public interface Listener {
