@@ -1,2 +1,9 @@
-gen/
+#Android generated
+bin
+gen
+.project
+.classpath
+.settings
+
+#Command line
 local.properties

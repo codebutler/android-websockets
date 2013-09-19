@@ -240,8 +240,12 @@ public class HybiParser {
         return frame;
     }
 
+    public void ping() {
+        mClient.sendFrame(frame(new byte[]{}, OP_PING, -1));
+    }
+
     public void ping(String message) {
-        mClient.send(frame(message, OP_PING, -1));
+        mClient.sendFrame(frame(message, OP_PING, -1));
     }
 
     public void close(int code, String reason) {

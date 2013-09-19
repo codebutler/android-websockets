@@ -184,6 +184,14 @@ public class WebSocketClient {
         sendFrame(mParser.frame(data));
     }
 
+    public void ping() {
+        mParser.ping();
+    }
+
+    public void ping(String message) {
+        mParser.ping(message);
+    }
+
     private StatusLine parseStatusLine(String line) {
         if (TextUtils.isEmpty(line)) {
             return null;
