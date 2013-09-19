@@ -250,7 +250,7 @@ public class HybiParser {
 
     public void close(int code, String reason) {
         if (mClosed) return;
-        mClient.send(frame(reason, OP_CLOSE, code));
+        mClient.sendFrame(frame(reason, OP_CLOSE, code));
         mClosed = true;
     }
 
