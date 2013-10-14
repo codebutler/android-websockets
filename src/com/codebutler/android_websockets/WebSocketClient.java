@@ -22,6 +22,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URI;
 import java.security.KeyManagementException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
@@ -85,12 +86,13 @@ public class WebSocketClient {
                     mSocket = factory.createSocket(mURI.getHost(), port);
 
                     PrintWriter out = new PrintWriter(mSocket.getOutputStream());
+                    String secretKey = createSecret();
                     out.print("GET " + path + " HTTP/1.1\r\n");
                     out.print("Upgrade: websocket\r\n");
                     out.print("Connection: Upgrade\r\n");
                     out.print("Host: " + mURI.getHost() + "\r\n");
                     out.print("Origin: " + origin.toString() + "\r\n");
-                    out.print("Sec-WebSocket-Key: " + createSecret() + "\r\n");
+                    out.print("Sec-WebSocket-Key: " + secretKey + "\r\n");
                     out.print("Sec-WebSocket-Version: 13\r\n");
                     if (mExtraHeaders != null) {
                         for (NameValuePair pair : mExtraHeaders) {
@@ -115,7 +117,12 @@ public class WebSocketClient {
                     while (!TextUtils.isEmpty(line = readLine(stream))) {
                         Header header = parseHeader(line);
                         if (header.getName().equals("Sec-WebSocket-Accept")) {
-                            // FIXME: Verify the response...
+                            String expected = expectedKey(secretKey);
+                            if (expected == null) {
+                                throw new Exception("SHA-1 algorithm not found");
+                            } else if (!expected.equals(header.getValue())) {
+                                throw new Exception("Invalid Sec-WebSocket-Accept, expected: " + expected + ", got: " + header.getValue());
+                            }
                         }
                     }
 
@@ -206,6 +213,19 @@ public class WebSocketClient {
             }
         }
         return string.toString();
+    }
+
+    private String expectedKey(String secret) {
+        //concatenate, SHA1-hash, base64-encode
+        try {
+            final String GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+            final String secretGUID = secret + GUID;
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] digest = md.digest(secretGUID.getBytes());
+            return Base64.encodeToString(digest, Base64.DEFAULT).trim();
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
     }
 
     private String createSecret() {
