@@ -17,7 +17,7 @@ List<BasicNameValuePair> extraHeaders = Arrays.asList(
     new BasicNameValuePair("Cookie", "session=abcd");
 );
 
-WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), new WebSocketClient.Handler() {
+WebSocketClient client = new WebSocketClient(URI.create("wss://irccloud.com"), new WebSocketClient.Listener() {
     @Override
     public void onConnect() {
         Log.d(TAG, "Connected!");
