@@ -10,6 +10,7 @@ import java.util.Hashtable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import android.net.Uri;
 import android.os.Handler;
 import android.text.TextUtils;
 
@@ -114,8 +115,9 @@ class SocketIOConnection {
                     if (!set.contains("websocket"))
                         throw new Exception("websocket not supported");
 
-                    final String sessionUrl = request.getUri().toString()
-                            + "websocket/" + session + "/";
+                    final String sessionUrl = Uri.parse(request.getUri()).buildUpon()
+                    		.appendPath("websocket").appendPath(session)
+                    		.build().toString();
                     
                     SocketIOConnection.this.webSocketClient =  new WebSocketClient(URI.create(sessionUrl), new Listener() {
                         
