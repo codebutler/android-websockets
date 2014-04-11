@@ -1,3 +1,7 @@
+# THIS LIBRARY IS DEPRECATED IN FAVOR OF:
+
+https://github.com/koush/AndroidAsync
+
 # WebSocket and Socket.IO client for Android
 
 ## Credits
