@@ -4,9 +4,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
+import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.message.BasicNameValuePair;
 
 import android.net.Uri;
 import android.net.http.AndroidHttpClient;
@@ -28,25 +34,32 @@ public class AsyncHttpClient {
 
         private String mUri;
         private String mEndpoint;
+        private List<BasicNameValuePair> mHeaders;
 
         public SocketIORequest(String uri) {
             this(uri, null);
         }
 
         public SocketIORequest(String uri, String endpoint) {
+            this(uri, endpoint, null);
+        }
 
+        public SocketIORequest(String uri, String endpoint, List<BasicNameValuePair> headers) {
             mUri = Uri.parse(uri).buildUpon().encodedPath("/socket.io/1/").build().toString();
             mEndpoint = endpoint;
+            mHeaders = headers;
         }
 
         public String getUri() {
-
             return mUri;
         }
 
         public String getEndpoint() {
-
             return mEndpoint;
+        }
+
+        public List<BasicNameValuePair> getHeaders() {
+            return mHeaders; 
         }
     }
 
@@ -67,6 +80,7 @@ public class AsyncHttpClient {
 
                 AndroidHttpClient httpClient = AndroidHttpClient.newInstance("android-websockets-2.0");
                 HttpPost post = new HttpPost(socketIORequest.getUri());
+                addHeadersToRequest(post, socketIORequest.getHeaders());
 
                 try {
                     HttpResponse res = httpClient.execute(post);
@@ -86,6 +100,16 @@ public class AsyncHttpClient {
                     httpClient = null;
                 }
                 return null;
+            }
+
+            private void addHeadersToRequest(HttpRequest request, List<BasicNameValuePair> headers) {
+                if (headers != null) {
+                    Iterator<BasicNameValuePair> it = headers.iterator();
+                    while (it.hasNext()) {
+                        BasicNameValuePair header = it.next();
+                        request.addHeader(header.getName(), header.getValue());
+                    }
+                }
             }
         }.execute();
     }
