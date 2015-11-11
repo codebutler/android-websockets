@@ -1,9 +1,36 @@
-def android_jar = new File(System.getenv('ANDROID_HOME'), '/platforms/android-17/android.jar')
+apply plugin: 'com.android.library'
 
-apply plugin: 'java'
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:1.2.3'
+    }
+}
 
-sourceCompatibility = 1.5
+android {
+    compileSdkVersion 22
+    buildToolsVersion "22.0.1"
+    defaultConfig {
+        minSdkVersion 9
+        targetSdkVersion 19
+        versionCode 1
+        versionName "1.0"
+    }
+    lintOptions {
+        abortOnError false
+    }
+
+}
+repositories {
+    jcenter()
+}
 
 dependencies {
-  compile files(android_jar)
+    repositories {
+        mavenCentral()
+    }
+    compile 'com.squareup.okhttp:okhttp:2.5.0'
+
 }
