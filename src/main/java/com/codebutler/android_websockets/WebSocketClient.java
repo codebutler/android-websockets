@@ -117,7 +117,7 @@ public class WebSocketClient {
 
                     while (!TextUtils.isEmpty(line = readLine(stream))) {
                         Header header = parseHeader(line);
-                        if (header.getName().equals("Sec-WebSocket-Accept")) {
+                        if (header.getName().toLowerCase().equals("Sec-WebSocket-Accept".toLowerCase())) {
                             String expected = createSecretValidation(secret);
                             String actual = header.getValue().trim();
 
